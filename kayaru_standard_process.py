@@ -49,6 +49,10 @@ def cutStrAfterKey(key,str):
     ans = right( str , len(str) - no )
     return ans
 
+def exit():
+    sys.exit()
+
+
 def patternMatch(key,str):
     # 一致する　：＞0
     # 一致しない：＝0
@@ -242,8 +246,7 @@ class CsvReader():
         self.data_list = csv.reader(self.file)
 
         for self.data_tmp in self.data_list:
-            self.data_str_tmp = str(self.data_tmp)
-            self.data.append(self.data_str_tmp.split(","))
+            self.data.append(self.data_tmp)
 
         del self.data[0]
 
@@ -277,8 +280,16 @@ def getVarName( var, symboltable=locals(), error=None ) :
     ans = ans + " )"
     return ans
 
-def compareType(val1,val2):
-    if type(val1) == type(val2):
+def compareType(var1,var2):
+    if type(var1) == type(var2):
+        return True
+    else:
+        return False
+
+def compareNpListSize(var1,var2,dict):
+    size1 = var1.shape[dict - 1 ]
+    size2 = var2.shape[dict - 1 ]
+    if size1 == size2:
         return True
     else:
         return False
@@ -304,7 +315,7 @@ def echoBlank():
     print("")
 
 def echoStart(process=""):
-    print(str(getTimeyyyymmddhhmmss()) + "\t start process " + process)
+    print(str(getTimeyyyymmddhhmmss()) + "\t start process : " + process)
 
 def echoBar(length="50",mark="*"):
     
@@ -319,6 +330,18 @@ def echoBar(length="50",mark="*"):
 def echoList1d(x_list):
     for row in x_list:
         print(row)
+
+def echoIsAlready(process=""):
+    print(process + "\tis already")
+
+def echoIsSetting(process="",var=""):
+    print(str(process) + "\t: " + str(var) + "\tis setting")
+
+def echoErrorCodeIs(error_code=""):
+    print("ERROR_CODE is : " + str(error_code) )
+
+def echoAisB(name,var):
+    print( str(name) + "\tis\t" + str(var) )
 
 
 #### layer 2 messages
