@@ -19,7 +19,7 @@ def convImageNpList2d2Flat(image_nplist):
 
 def checkImageSize(height,wigth,flat_image_nplist):
     base_length  = height * wigth
-    given_length = flat_image_nplist.shape[0]
+    given_length = flat_image_nplist.shape[1]
 
     if base_length == given_length:
         return True
@@ -86,3 +86,4 @@ class DtoFlatImageDataNplistForTf():
 
     def getList(self):
         return self.flat_image_data_list
+       
