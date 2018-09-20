@@ -5,11 +5,8 @@ import kayaru_standard_process_for_image as image
 import kayaru_standard_process_for_randomize as rand
 import kayaru_standard_process_for_error_handling as error_handler
 import kayaru_standard_messages as kstd_m
-import glob
 import numpy as np
-import pandas as pd
 import os
-import joblib as jl
 
 import tensorflow as tf
 
@@ -18,28 +15,16 @@ AXIS_X_IMAGE_WIGTH   = 1
 AXIS_X_IMAGE_HEIGHT  = 2
 AXIS_X_IMAGE_CHANNEL = 3
 
+class DtoCaseMetaForTFCNN():
+    def __init__(self):
+        self.learned_parameter_file_path = os.path.join( kstd.getScriptDir(),"_param.ckpt")
+        self.predicted_label_file_path   = os.path.join( kstd.getScriptDir(),"_label.csv")
 
-
-
-def echoWrongList():
-    print("wrong image list!!!!")
-
-def echoXisNotSameSize(X):
-    print( str(X) + " is not same size!!!!!!" )
-
-def echoNotFirstlization():
-    print("not firstlization height or wigth")
-
-def checkLabelSize(num_of_label_kind,label_list):
-    if kstd.isList(label_list):
-        lengeth = len(label_list)
-    else:
-        lengeth = label_list.shape[1]
-
-    if num_of_label_kind == lengeth:
-        return True
-    else:
-        return False
+    def setLearnedParameterFilePath(self,file_path):
+        self.learned_parameter_file_path = file_path
+        
+    def setPredictedLabelFilePath(self,file_path):
+        self.predicted_label_file_path = file_path
 
 class DtoDataSetForTFCNN():
     def __init__(self):
@@ -53,18 +38,21 @@ class DtoDataSetForTFCNN():
         self.ERROR_CODE_BY_IMAGE_LIST = 103
         self.ERROR_CODE_BY_LABEL_LIST = 104
         self.ERROR_CODE_BY_LABEL_KIND = 105
+        self.ERROR_CODE_BY_TEST_LIST  = 106
 
     def firstlizationImage(self,wigth,height):
         self.height               = height
         self.wigth                = wigth
         self.image_list_size      = self.wigth * self.height
         self.flat_image_nplists   = np.empty((0,self.image_list_size))
+        self.t_flat_image_nplists = np.empty((0,self.image_list_size))
 
     def firstlizationLabel(self,num_of_label_kind):
-        self.num_of_label_kind    = num_of_label_kind
-        self.label_nplists        = np.empty((0,self.num_of_label_kind))
+        self.num_of_label_kind = num_of_label_kind
+        self.label_nplists     = np.empty((0,self.num_of_label_kind))
+        self.t_label_nplists   = np.empty((0,self.num_of_label_kind))
 
-    def clearList(self):
+    def clearFlatImageList(self):
         self.flat_image_nplist = np.empty((0,self.image_list_size))
 
     def addFlatImageList(self,flat_image_nplist):
@@ -82,11 +70,43 @@ class DtoDataSetForTFCNN():
         return kstd.NORMAL_CODE
 
     def addLabelList(self,label_nplist):
-        if not checkLabelSize(self.num_of_label_kind,label_nplist):
+        if not self.checkLabelSize(self.num_of_label_kind,label_nplist):
             return kstd.ERROR_CODE
 
         self.label_nplists = np.insert(self.label_nplists,0,label_nplist,axis = 0)
         return kstd.NORMAL_CODE
+
+    def addTestFlatImageList(self,flat_image_nplist):
+        if not image.checkImageSize(self.height,self.wigth,flat_image_nplist):
+            echoXisNotSameSize("image_list")
+            if( self.image_list_size == 0 ):
+                echoNotFirstlization()
+            else:
+                kstd.echoAisB("height",self.height)
+                kstd.echoAisB("wigth",self.wigth)
+                kstd.echoAisB("nplist size",flat_image_nplist.shape[1])
+            return kstd.ERROR_CODE
+
+        self.flat_image_nplists = np.insert(self.t_flat_image_nplists,0,flat_image_nplist,axis = 0)
+        return kstd.NORMAL_CODE
+
+    def addTestLabelList(self,label_nplist):
+        if not self.checkLabelSize(self.num_of_label_kind,label_nplist):
+            return kstd.ERROR_CODE
+
+        self.label_nplists = np.insert(self.t_label_nplists,0,label_nplist,axis = 0)
+        return kstd.NORMAL_CODE
+
+    def checkLabelSize(self,num_of_label_kind,label_list):
+        if kstd.isList(label_list):
+            lengeth = len(label_list)
+        else:
+            lengeth = label_list.shape[1]
+
+        if num_of_label_kind == lengeth:
+            return True
+        else:
+            return False
 
     def varCheck(self):
         kstd.echoBlank()
@@ -97,8 +117,10 @@ class DtoDataSetForTFCNN():
             return self.ERROR_CODE_BY_WIGTH
         elif not self.num_of_label_kind > 0:
             return self.ERROR_CODE_BY_LABEL_KIND
-        elif kstd.compareNpListSize(self.label_nplists,self.flat_image_nplists,2):
+        elif kstd.compareNpListSize(self.label_nplists,self.flat_image_nplists,1):
             return self.ERROR_CODE_BY_IMAGE_LIST
+        elif kstd.compareNpListSize(self.t_label_nplists,self.t_flat_image_nplists,1):
+            return self.ERROR_CODE_BY_TEST_LIST
 
         return kstd.NORMAL_CODE
 
@@ -118,11 +140,6 @@ class DtoDataSetForTFCNN():
 
         return self.ans_nplists
         
-
-
-
-
-
 class DtoHyperParameterForTFCNN():
     def __init__(self):
         self.NUM_OF_IN_CH_1      = 1
@@ -195,6 +212,16 @@ class DtoHyperParameterForTFCNN():
     def addShapePool(self,var_list):
         self.shape_pool.append(var_list)
 
+    def updateLearningRate(self,update_rate=0.9):
+        if update_rate > 1.0:
+            kstd.echoErrorOccured("learning_rate's update rate is over 1.0")
+            return kstd.ERROR_CODE
+        if update_rate <= 0:
+            kstd.echoErrorOccured("learning_rate's update rate is under 0")
+            return kstd.ERROR_CODE
+        kstd.echoAisB("learning_rate",self.learning_rate)
+        self.learning_rate = self.learning_rate * update_rate        
+
     def varCheck(self):
         self.filter_wigth_size  = len(self.filter_wigth)
         self.filter_height_size = len(self.filter_height)
@@ -226,6 +253,32 @@ class DtoHyperParameterForTFCNN():
 
         return kstd.NORMAL_CODE
 
+############################################################################
+#
+# messages
+#
+############################################################################
+
+def echoWrongList():
+    print("wrong image list!!!!")
+
+def echoXisNotSameSize(X):
+    print( str(X) + " is not same size!!!!!!" )
+
+def echoNotFirstlization():
+    print("not firstlization height or wigth")
+
+
+############################################################################
+#
+# standard functions
+#
+############################################################################
+def resultSave(result_lists,file_path):
+    csv_writer = kstd.CsvWriter()
+    csv_writer.openFile(file_path)
+    csv_writer.writeOfArray2d(result_lists)
+    csv_writer.closeFile()
 
 ############################################################################
 #
@@ -246,7 +299,8 @@ def bias_variable(shape):
     initial = tf.constant(0.1, shape=shape)
     return tf.Variable(initial)
 
-def cnnExecuter(dto_data_set,dto_hyper_param):
+
+def cnnExecuter(dto_data_set,dto_hyper_param,dto_case_meta):
 
 
     #####################################################
@@ -254,13 +308,13 @@ def cnnExecuter(dto_data_set,dto_hyper_param):
     #####################################################
     
     x_size = dto_data_set.image_list_size
-    x  = tf.placeholder(tf.float32, shape=[ None , x_size ])
+    x      = tf.placeholder(tf.float32, shape=[ None , x_size ])
     y_size = dto_data_set.num_of_label_kind
-    y_ = tf.placeholder(tf.float32, shape=[ None , y_size ])
-
+    y_     = tf.placeholder(tf.float32, shape=[ None , y_size ])
+    
     image_wigth  = dto_data_set.wigth
     image_height = dto_data_set.height
-    x_image = tf.reshape(x, [-1, image_wigth, image_height, 1])
+    x_image      = tf.reshape(x, [-1, image_wigth, image_height, 1])
 
     # W = tf.Variable(tf.zeros([num_of_image_pixels, num_of_answer_kind]))
     # b = tf.Variable(tf.zeros([NUM_OF_ANSWER_KIND]))
@@ -328,14 +382,22 @@ def cnnExecuter(dto_data_set,dto_hyper_param):
     #***************************************************
     # learning
     #***************************************************
+    kstd.echoBlank()
+    kstd.echoBlank()
+    kstd.echoBlank()
+    kstd.echoBlank()
+    kstd.echoBlank()
+
     cross_entropy      = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=y_, logits=y_cnn))
-    train_step         = tf.train.AdamOptimizer(1e-4).minimize(cross_entropy)
+    train_step         = tf.train.AdamOptimizer(dto_hyper_param.learning_rate).minimize(cross_entropy)
     correct_prediction = tf.equal(tf.argmax(y_cnn, 1), tf.argmax(y_, 1))
     accuracy           = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+    kstd.echoBlank()
+    kstd.echoBlank()
+    kstd.echoBlank()
+    kstd.echoBlank()
+    kstd.echoBlank()
 
-    kstd.echoBlank()
-    kstd.echoBlank()
-    kstd.echoBlank()
     process_name = "learning session"
     kstd.echoStart(process_name)
     kstd.echoBlank()
@@ -351,12 +413,24 @@ def cnnExecuter(dto_data_set,dto_hyper_param):
             sample_nplists = dto_data_set.label_nplists
             batch_y        = dto_data_set.getBatchSample(sample_nplists,batch_size)
 
+
+            train_step.run(feed_dict={x: batch_x, y_: batch_y, keep_prob: dto_hyper_param.drop_rate})
             train_accuracy = accuracy.eval(feed_dict={ x: batch_x, y_: batch_y, keep_prob: 1.0})
             print('step %d, training accuracy %g' % (li, train_accuracy))
 
-            train_step.run(feed_dict={x: batch_x, y_: batch_y, keep_prob: dto_hyper_param.drop_rate})
+        y_predicted = y_cnn.eval(feed_dict={x: batch_x, y_: batch_y, keep_prob: 1.0} )
+        resultSave(y_predicted,dto_case_meta.predicted_label_file_path)
+
+        saver = tf.train.Saver()
+        saver.save(sess, dto_case_meta.learned_parameter_file_path)
 
     kstd.echoIsAlready(process_name)
+
+
+
+
+
+
 
 #        print('test accuracy %g' % accuracy.eval(feed_dict={x: mnist.test.images, y_: mnist.test.labels, keep_prob: 1.0}))
 

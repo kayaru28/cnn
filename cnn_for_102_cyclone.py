@@ -65,19 +65,19 @@ if __name__ == "__main__":
 
     dto_hyper_param = cnn.DtoHyperParameterForTFCNN()
   
-    kstd.echoIsSetting("num_of_conv_layer",str(prop.num_of_conv_layer) )
     dto_hyper_param.setNumOfConvLayer(prop.num_of_conv_layer)
-    kstd.echoIsSetting("num_of_hidden_layer",str(prop.num_of_hidden_layer) )
+    kstd.echoIsSetting("num_of_conv_layer",str(dto_hyper_param.num_of_conv_layer) )
     dto_hyper_param.setNumOfHiddenLayer(prop.num_of_hidden_layer)
-    kstd.echoIsSetting("drop_rate",str(prop.drop_rate) )
+    kstd.echoIsSetting("num_of_hidden_layer",str(dto_hyper_param.num_of_hidden_layer) )
     dto_hyper_param.setDropRate(prop.drop_rate)
-    kstd.echoIsSetting("learning_rate",str(prop.learning_rate))
+    kstd.echoIsSetting("drop_rate",str(dto_hyper_param.drop_rate) )
     dto_hyper_param.setLearningRate(prop.learning_rate)
-    kstd.echoIsSetting("learning_iter",str(prop.learning_iteration))
+    kstd.echoIsSetting("learning_rate",str(dto_hyper_param.learning_rate))
     dto_hyper_param.setLearningIteration(prop.learning_iteration)
-    kstd.echoIsSetting("batch_size",str(prop.batch_size))
+    kstd.echoIsSetting("learning_iter",str(dto_hyper_param.learning_iteration))
     dto_hyper_param.setBatchSize(prop.batch_size)
-
+    kstd.echoIsSetting("batch_size",str(dto_hyper_param.batch_size))
+    
     for conv_layer_number in range(prop.num_of_conv_layer):
         dto_hyper_param.addFilterWigth(prop.filter_wigth[conv_layer_number])
         dto_hyper_param.addFilterHeight(prop.filter_height[conv_layer_number])
@@ -97,7 +97,12 @@ if __name__ == "__main__":
     varCheckSpecial(dto_data_set,process_name)
     
     process_name = "convolution neural net"
+
+    dto_case_meta = cnn.DtoCaseMetaForTFCNN()
+    dto_case_meta.setLearnedParameterFilePath(prop.learned_param_path)
+    dto_case_meta.setPredictedLabelFilePath(prop.result_of_test_y_path)
+
     echoStartSpecial(process_name)
-    cnn.cnnExecuter(dto_data_set,dto_hyper_param)
+    cnn.cnnExecuter(dto_data_set,dto_hyper_param,dto_case_meta)
 
 
