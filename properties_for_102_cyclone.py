@@ -1,9 +1,13 @@
 #coding: UTF-8
 import os
 
-common_dir = "C:\\Users\\istor\\Desktop\\work\\102_DSL_cyclone_classification"
-image_list_path = common_dir + "\\sample_list_0000.csv"
-label_list_path = common_dir + "\\label_list_0000.csv"
+case = 0
+
+common_dir           = "C:\\Users\\istor\\Desktop\\work\\102_DSL_cyclone_classification"
+image_list_path      = common_dir + "\\sample_list_{0:04d}.csv".format(case)
+label_list_path      = common_dir + "\\label_list_{0:04d}.csv".format(case)
+learned_param_path   = common_dir + "\\_learned_param_{0:04d}.ckpt".format(case)
+result_of_test_y_path = common_dir + "\\result_y_for_test_{0:04d}.csv".format(case)
 
 ################################################################################
 #
@@ -24,7 +28,7 @@ image_height      = 64
 num_of_hidden_layer = 10
 num_of_conv_layer   = 2
 drop_rate           = 0.8
-learning_rate       = 0.7
+learning_rate       = 0.001
 learning_iteration  = 20
 batch_size          = 10
 
