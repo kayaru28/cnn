@@ -286,9 +286,9 @@ def compareType(var1,var2):
     else:
         return False
 
-def compareNpListSize(var1,var2,dict):
-    size1 = var1.shape[dict - 1 ]
-    size2 = var2.shape[dict - 1 ]
+def compareNpListSize(var1,var2,axis):
+    size1 = var1.shape[axis]
+    size2 = var2.shape[axis]
     if size1 == size2:
         return True
     else:
