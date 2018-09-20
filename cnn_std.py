@@ -14,7 +14,7 @@ AXIS_X_IMAGE_NUM     = 0
 AXIS_X_IMAGE_WIGTH   = 1
 AXIS_X_IMAGE_HEIGHT  = 2
 AXIS_X_IMAGE_CHANNEL = 3
-
+        
 class DtoCaseMetaForTFCNN():
     def __init__(self):
         self.learned_parameter_file_path = os.path.join( kstd.getScriptDir(),"_param.ckpt")
@@ -418,7 +418,8 @@ def cnnExecuter(dto_data_set,dto_hyper_param,dto_case_meta):
             train_accuracy = accuracy.eval(feed_dict={ x: batch_x, y_: batch_y, keep_prob: 1.0})
             print('step %d, training accuracy %g' % (li, train_accuracy))
 
-        y_predicted = y_cnn.eval(feed_dict={x: batch_x, y_: batch_y, keep_prob: 1.0} )
+        test_x = dto_data_set.t_flat_image_nplists
+        y_predicted = y_cnn.eval(feed_dict={x: test_x, keep_prob: 1.0} )
         resultSave(y_predicted,dto_case_meta.predicted_label_file_path)
 
         saver = tf.train.Saver()
@@ -426,13 +427,6 @@ def cnnExecuter(dto_data_set,dto_hyper_param,dto_case_meta):
 
     kstd.echoIsAlready(process_name)
 
-
-
-
-
-
-
-#        print('test accuracy %g' % accuracy.eval(feed_dict={x: mnist.test.images, y_: mnist.test.labels, keep_prob: 1.0}))
 
 
 if __name__ == "__main__":
