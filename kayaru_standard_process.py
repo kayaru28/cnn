@@ -10,6 +10,15 @@ import inspect
 ERROR_CODE  = 100
 NORMAL_CODE = 0
 
+def mkdir(path):
+    if os.path.exists(path):
+        print("FUNC:mkdir\t:the file is existing (" + path + ")")
+        return ERROR_CODE
+    else:
+        os.mkdir(path)
+        return NORMAL_CODE
+
+
 def getPaddingString(x_str,length,padding=" "):
 
     if len(x_str) >= length:
@@ -18,7 +27,6 @@ def getPaddingString(x_str,length,padding=" "):
         for i in range(length - len(x_str) ):
             x_str = x_str + padding
         return x_str
-
 
 def getKeyboadInput():
     ans = input()
