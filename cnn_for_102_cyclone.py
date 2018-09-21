@@ -13,6 +13,14 @@ def echoStartSpecial(process=""):
     kstd.echoBar(70,"-")
     kstd.echoBlank()
 
+def echoIsAlreadySpecial(process=""):
+    kstd.echoBlank()
+    kstd.echoBar(15,"-- ")
+    print(str(kstd.getTimeyyyymmddhhmmss()))
+    kstd.echoIsAlready("    " + process)
+    kstd.echoBar(15,"-- ")
+    kstd.echoBlank()
+
 def getDataSet(dto_data_set):
 
 
@@ -24,7 +32,7 @@ def getDataSet(dto_data_set):
     csv_reader_for_image.readFile()
 
     image_list = np.array(csv_reader_for_image.getData())
-    kstd.echoIsSetting("flat_image_list","image_list")
+    kstd.echoIsSetting("image      ","image_list")
     exit_code = dto_data_set.addFlatImageList(image_list)
 
     csv_reader_for_image.closeFile()
@@ -39,17 +47,29 @@ def getDataSet(dto_data_set):
     csv_reader_for_label.readFile()
 
     label_list = np.array(csv_reader_for_label.getData())
-    kstd.echoIsSetting("label_list","label_list")
+    kstd.echoIsSetting("label      ","label_list")
     exit_code = dto_data_set.addLabelList(label_list)
 
     csv_reader_for_label.closeFile()
 
     kstd.judgeError(exit_code)
 
+    csv_reader_for_test_image = kstd.CsvReader()
+    csv_reader_for_test_image.openFile(prop.test_image_list_path)
+    csv_reader_for_test_image.readFile()
+
+    test_image_list = np.array(csv_reader_for_test_image.getData())
+    kstd.echoIsSetting("test_image","image_list")
+    exit_code = dto_data_set.addTestFlatImageList(test_image_list)
+
+    csv_reader_for_test_image.closeFile()
+
+    kstd.judgeError(exit_code)
+
 def varCheckSpecial(dto,process_name):
     if(dto.varCheck() == kstd.NORMAL_CODE ):
         kstd.echoBlank()
-        kstd.echoIsAlready(process_name)
+        echoIsAlreadySpecial(process_name)
         kstd.echoBlank()
         kstd.echoBlank()
     else:
@@ -65,18 +85,19 @@ if __name__ == "__main__":
 
     dto_hyper_param = cnn.DtoHyperParameterForTFCNN()
   
+    length = 20
     dto_hyper_param.setNumOfConvLayer(prop.num_of_conv_layer)
-    kstd.echoIsSetting("num_of_conv_layer",str(dto_hyper_param.num_of_conv_layer) )
+    kstd.echoIsSetting(kstd.getPaddingString("num_of_conv_layer",length),str(dto_hyper_param.num_of_conv_layer) )
     dto_hyper_param.setNumOfHiddenLayer(prop.num_of_hidden_layer)
-    kstd.echoIsSetting("num_of_hidden_layer",str(dto_hyper_param.num_of_hidden_layer) )
+    kstd.echoIsSetting(kstd.getPaddingString("num_of_hidden_layer",length),str(dto_hyper_param.num_of_hidden_layer) )
     dto_hyper_param.setDropRate(prop.drop_rate)
-    kstd.echoIsSetting("drop_rate",str(dto_hyper_param.drop_rate) )
+    kstd.echoIsSetting(kstd.getPaddingString("drop_rate",length),str(dto_hyper_param.drop_rate) )
     dto_hyper_param.setLearningRate(prop.learning_rate)
-    kstd.echoIsSetting("learning_rate",str(dto_hyper_param.learning_rate))
+    kstd.echoIsSetting(kstd.getPaddingString("learning_rate",length),str(dto_hyper_param.learning_rate))
     dto_hyper_param.setLearningIteration(prop.learning_iteration)
-    kstd.echoIsSetting("learning_iter",str(dto_hyper_param.learning_iteration))
+    kstd.echoIsSetting(kstd.getPaddingString("learning_iter",length),str(dto_hyper_param.learning_iteration))
     dto_hyper_param.setBatchSize(prop.batch_size)
-    kstd.echoIsSetting("batch_size",str(dto_hyper_param.batch_size))
+    kstd.echoIsSetting(kstd.getPaddingString("batch_size",length),str(dto_hyper_param.batch_size))
     
     for conv_layer_number in range(prop.num_of_conv_layer):
         dto_hyper_param.addFilterWigth(prop.filter_wigth[conv_layer_number])
