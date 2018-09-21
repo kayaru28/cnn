@@ -1,14 +1,6 @@
 #coding: UTF-8
 import os
 
-case = 0
-
-common_dir           = "C:\\Users\\istor\\Desktop\\work\\102_DSL_cyclone_classification"
-image_list_path      = common_dir + "\\sample_list_{0:04d}.csv".format(case)
-label_list_path      = common_dir + "\\label_list_{0:04d}.csv".format(case)
-learned_param_path   = common_dir + "\\_learned_param_{0:04d}.ckpt".format(case)
-result_of_test_y_path = common_dir + "\\result_y_for_test_{0:04d}.csv".format(case)
-
 ################################################################################
 #
 # dataset parameters
