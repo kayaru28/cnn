@@ -6,13 +6,28 @@ import pandas as pd
 import datetime
 import time
 import inspect
+import ntpath
+import shutil
+
 
 ERROR_CODE  = 100
 NORMAL_CODE = 0
 
+def cp(file_path,copied_dir_path):
+    if not os.path.exists(file_path):
+        print("FUNC:cp in kstd\t:the file is not existing (" + file_path + ")")
+        return ERROR_CODE
+    else:
+        file_name     = ntpath.basename(file_path)
+        file_path_new = os.path.join(copied_dir_path,file_name) 
+        print(file_path_new)
+        print(file_path)
+        shutil.copyfile(file_path, file_path_new)
+        return NORMAL_CODE
+
 def mkdir(path):
     if os.path.exists(path):
-        print("FUNC:mkdir\t:the file is existing (" + path + ")")
+        print("FUNC:mkdir in kstd\t:the file is existing (" + path + ")")
         return ERROR_CODE
     else:
         os.mkdir(path)
