@@ -10,6 +10,16 @@ import inspect
 ERROR_CODE  = 100
 NORMAL_CODE = 0
 
+def getPaddingString(x_str,length,padding=" "):
+
+    if len(x_str) >= length:
+        return x_str
+    else:
+        for i in range(length - len(x_str) ):
+            x_str = x_str + padding
+        return x_str
+
+
 def getKeyboadInput():
     ans = input()
     return ans
