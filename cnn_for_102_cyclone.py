@@ -77,7 +77,8 @@ def varCheckSpecial(dto,process_name):
         kstd.echoErrorCodeIs(dto.varCheck())
         kstd.exit()
 
-
+#####################################################################################
+#####################################################################################
 if __name__ == "__main__":
 
     process_name = "hyper parameter setting"
@@ -85,6 +86,10 @@ if __name__ == "__main__":
 
     dto_hyper_param = cnn.DtoHyperParameterForTFCNN()
   
+    #######################################################
+    # hyper parameter settings
+    #######################################################
+
     length = 20
     dto_hyper_param.setNumOfConvLayer(prop.num_of_conv_layer)
     kstd.echoIsSetting(kstd.getPaddingString("num_of_conv_layer",length),str(dto_hyper_param.num_of_conv_layer) )
@@ -99,6 +104,7 @@ if __name__ == "__main__":
     dto_hyper_param.setBatchSize(prop.batch_size)
     kstd.echoIsSetting(kstd.getPaddingString("batch_size",length),str(dto_hyper_param.batch_size))
     
+    # conv and pooling filter parameter
     for conv_layer_number in range(prop.num_of_conv_layer):
         dto_hyper_param.addFilterWigth(prop.filter_wigth[conv_layer_number])
         dto_hyper_param.addFilterHeight(prop.filter_height[conv_layer_number])
@@ -109,6 +115,9 @@ if __name__ == "__main__":
 
     varCheckSpecial(dto_hyper_param,process_name)
 
+    #######################################################
+    # data set setting
+    #######################################################
     process_name = "data set setting"
     echoStartSpecial(process_name)
 
@@ -117,11 +126,14 @@ if __name__ == "__main__":
 
     varCheckSpecial(dto_data_set,process_name)
     
-    process_name = "convolution neural net"
-
     dto_case_meta = cnn.DtoCaseMetaForTFCNN()
     dto_case_meta.setLearnedParameterFilePath(prop.learned_param_path)
     dto_case_meta.setPredictedLabelFilePath(prop.result_of_test_y_path)
+
+    #######################################################
+    # cnn executer
+    #######################################################
+    process_name = "convolution neural net"
 
     echoStartSpecial(process_name)
     cnn.cnnExecuter(dto_data_set,dto_hyper_param,dto_case_meta)
