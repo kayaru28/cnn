@@ -25,52 +25,43 @@ def echoIsAlreadySpecial(process=""):
     kstd.echoBar(15,"-- ")
     kstd.echoBlank()
 
+def readListData(path):
+    csv_reader = kstd.CsvReader()
+
+    csv_reader.openFile(path)
+    csv_reader.readFile()
+
+    image_list = np.array(csv_reader.getData())
+
+    csv_reader.closeFile()
+
+    return image_list
+
 def getDataSet(dto_data_set,file_path):
 
     ### image data reading
     dto_data_set.firstlizationImage(prop.image_wigth,prop.image_height)
 
     path = file_path.image_list
-    csv_reader_for_image = kstd.CsvReader()
-    csv_reader_for_image.openFile(path)
-    csv_reader_for_image.readFile()
-
-    image_list = np.array(csv_reader_for_image.getData())
-    kstd.echoIsSetting("image      ","image_list")
-    exit_code = dto_data_set.addFlatImageList(image_list)
-
-    csv_reader_for_image.closeFile()
-
+    x_list = readListData(path)
+    kstd.echoIsSetting(kstd.getPaddingString("image",12),"image_list")
+    exit_code = dto_data_set.addFlatImageList(x_list)
     kstd.judgeError(exit_code)
 
     ### label data reading
     dto_data_set.firstlizationLabel(prop.num_of_label_kind)
 
     path = file_path.label_list
-    csv_reader_for_label = kstd.CsvReader()
-    csv_reader_for_label.openFile(path)
-    csv_reader_for_label.readFile()
-
-    label_list = np.array(csv_reader_for_label.getData())
-    kstd.echoIsSetting("label      ","label_list")
-    exit_code = dto_data_set.addLabelList(label_list)
-
-    csv_reader_for_label.closeFile()
-
+    x_list = readListData(path)
+    kstd.echoIsSetting(kstd.getPaddingString("label",12),"label_list")
+    exit_code = dto_data_set.addLabelList(x_list)
     kstd.judgeError(exit_code)
 
-def getDataSetForTest(dto_data_set,case):
-
-    csv_reader_for_test_image = kstd.CsvReader()
-    #csv_reader_for_test_image.openFile(prop.test_image_list_path)
-    csv_reader_for_test_image.readFile()
-
-    test_image_list = np.array(csv_reader_for_test_image.getData())
-    kstd.echoIsSetting("test_image","image_list")
-    exit_code = dto_data_set.addTestFlatImageList(test_image_list)
-
-    csv_reader_for_test_image.closeFile()
-
+def getDataSetForTest(dto_data_set,file_path):
+    path = file_path.test_image_list
+    x_list = readListData(path)
+    kstd.echoIsSetting(kstd.getPaddingString("test_image",12),"image_list")
+    exit_code = dto_data_set.addTestFlatImageList(x_list)
     kstd.judgeError(exit_code)
 
 def varCheckSpecial(dto,process_name):
@@ -146,6 +137,7 @@ if __name__ == "__main__":
     echoStartSpecial(process_name)
 
     dto_data_set = cnn.DtoDataSetForTFCNN()
+    
     getDataSet(dto_data_set,file_path)
 
     varCheckSpecial(dto_data_set,process_name)
@@ -155,17 +147,23 @@ if __name__ == "__main__":
     path = file_path.learned_param
     dto_case_meta.setLearnedParameterFilePath(path)
 
-    
+    path = file_path.predicted_label
+    dto_case_meta.setPredictedLabelFilePath(path)    
 
 
     #######################################################
     # cnn executer
     #######################################################
     process_name = "convolution neural net"
-
     echoStartSpecial(process_name)
 
-    cnn.cnnExecuter(dto_data_set,dto_hyper_param,dto_case_meta)
+    #process_name = cnn.MODE_LEARNING + " process"
+    #echoStartSpecial(process_name)
+    #cnn.cnnLearningExecuter(dto_data_set,dto_hyper_param,dto_case_meta)
 
+    dto_data_set.firstlizationLabel(prop.num_of_label_kind)
+    getDataSetForTest(dto_data_set,file_path)
 
-
+    process_name = cnn.MODE_PREDICTION + " process"
+    echoStartSpecial(process_name)
+    cnn.cnnPredictionExecuter(dto_data_set,dto_hyper_param,dto_case_meta)

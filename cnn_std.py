@@ -15,6 +15,9 @@ AXIS_X_IMAGE_WIGTH   = 1
 AXIS_X_IMAGE_HEIGHT  = 2
 AXIS_X_IMAGE_CHANNEL = 3
         
+MODE_LEARNING   = "Learning"
+MODE_PREDICTION = "Prediction"
+
 class DtoCaseMetaForTFCNN():
     def __init__(self):
         self.learned_parameter_file_path = os.path.join( kstd.getScriptDir(),"_param.ckpt")
@@ -55,18 +58,31 @@ class DtoDataSetForTFCNN():
     def clearFlatImageList(self):
         self.flat_image_nplist = np.empty((0,self.image_list_size))
 
-    def addFlatImageList(self,flat_image_nplist):
-        if not image.checkImageSize(self.height,self.wigth,flat_image_nplist):
+    def _varCheckAddFlatImageList(self,x_image_nplist):
+        if not image.checkImageSize(self.height,self.wigth,x_image_nplist):
             echoXisNotSameSize("image_list")
             if( self.image_list_size == 0 ):
                 echoNotFirstlization()
             else:
                 kstd.echoAisB("height",self.height)
                 kstd.echoAisB("wigth",self.wigth)
-                kstd.echoAisB("nplist size",flat_image_nplist.shape[1])
+                kstd.echoAisB("nplist size",x_image_nplist.shape[1])
             return kstd.ERROR_CODE
 
+        return kstd.NORMAL_CODE
+
+    def addFlatImageList(self,flat_image_nplist):
+        exit_code = self._varCheckAddFlatImageList(flat_image_nplist)
+        if exit_code==kstd.ERROR_CODE:
+            return exit_code
         self.flat_image_nplists = np.insert(self.flat_image_nplists,0,flat_image_nplist,axis = 0)
+        return kstd.NORMAL_CODE
+
+    def addTestFlatImageList(self,flat_image_nplist):
+        exit_code = self._varCheckAddFlatImageList(flat_image_nplist)
+        if (exit_code==kstd.ERROR_CODE) :
+            return exit_code
+        self.t_flat_image_nplists = np.insert(self.t_flat_image_nplists,0,flat_image_nplist,axis = 0)
         return kstd.NORMAL_CODE
 
     def addLabelList(self,label_nplist):
@@ -76,19 +92,6 @@ class DtoDataSetForTFCNN():
         self.label_nplists = np.insert(self.label_nplists,0,label_nplist,axis = 0)
         return kstd.NORMAL_CODE
 
-    def addTestFlatImageList(self,flat_image_nplist):
-        if not image.checkImageSize(self.height,self.wigth,flat_image_nplist):
-            echoXisNotSameSize("image_list")
-            if( self.image_list_size == 0 ):
-                echoNotFirstlization()
-            else:
-                kstd.echoAisB("height",self.height)
-                kstd.echoAisB("wigth",self.wigth)
-                kstd.echoAisB("nplist size",flat_image_nplist.shape[1])
-            return kstd.ERROR_CODE
-
-        self.flat_image_nplists = np.insert(self.t_flat_image_nplists,0,flat_image_nplist,axis = 0)
-        return kstd.NORMAL_CODE
 
     def addTestLabelList(self,label_nplist):
         if not self.checkLabelSize(self.num_of_label_kind,label_nplist):
@@ -119,8 +122,8 @@ class DtoDataSetForTFCNN():
             return self.ERROR_CODE_BY_LABEL_KIND
         elif kstd.compareNpListSize(self.label_nplists,self.flat_image_nplists,1):
             return self.ERROR_CODE_BY_IMAGE_LIST
-        elif kstd.compareNpListSize(self.t_label_nplists,self.t_flat_image_nplists,1):
-            return self.ERROR_CODE_BY_TEST_LIST
+        #elif kstd.compareNpListSize(self.t_label_nplists,self.t_flat_image_nplists,1):
+        #    return self.ERROR_CODE_BY_TEST_LIST
 
         return kstd.NORMAL_CODE
 
@@ -299,8 +302,16 @@ def bias_variable(shape):
     initial = tf.constant(0.1, shape=shape)
     return tf.Variable(initial)
 
+def cnnLearningExecuter(dto_data_set,dto_hyper_param,dto_case_meta):
+    mode = MODE_LEARNING
+    cnnExecuter(mode,dto_data_set,dto_hyper_param,dto_case_meta)
 
-def cnnExecuter(dto_data_set,dto_hyper_param,dto_case_meta):
+def cnnPredictionExecuter(dto_data_set,dto_hyper_param,dto_case_meta):
+    mode = MODE_PREDICTION
+    cnnExecuter(mode,dto_data_set,dto_hyper_param,dto_case_meta)
+
+
+def cnnExecuter(mode,dto_data_set,dto_hyper_param,dto_case_meta):
 
     #####################################################
     # variables
@@ -377,52 +388,58 @@ def cnnExecuter(dto_data_set,dto_hyper_param,dto_case_meta):
     kstd.echoIsAlready(process_name)
 
     #***************************************************
-    # learning
+    # defining functions
     #***************************************************
     kstd.echoBlanks(5)
-
     cross_entropy      = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=y_, logits=y_cnn))
     train_step         = tf.train.AdamOptimizer(dto_hyper_param.learning_rate).minimize(cross_entropy)
     correct_prediction = tf.equal(tf.argmax(y_cnn, 1), tf.argmax(y_, 1))
     accuracy           = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
-    kstd.echoBlank()
-    kstd.echoBlank()
-    kstd.echoBlank()
-    kstd.echoBlank()
-    kstd.echoBlank()
+    kstd.echoBlanks(5)
 
-    process_name = "learning session"
+    #***************************************************
+    # learning or prediction
+    #***************************************************
+    process_name = mode
     kstd.echoStart(process_name)
-    kstd.echoBlank()
-    kstd.echoBlank()
+    kstd.echoBlanks(2)
+    base_time = kstd.getTime()
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
-        for li in range(dto_hyper_param.learning_iteration):
-            batch_size     = dto_hyper_param.batch_size
-            
-            sample_nplists = dto_data_set.flat_image_nplists
-            batch_x        = dto_data_set.getBatchSample(sample_nplists,batch_size)
+        if( mode == MODE_LEARNING ):
+            for li in range(dto_hyper_param.learning_iteration):
+                batch_size     = dto_hyper_param.batch_size
+                
+                sample_nplists = dto_data_set.flat_image_nplists
+                batch_x        = dto_data_set.getBatchSample(sample_nplists,batch_size)
 
-            sample_nplists = dto_data_set.label_nplists
-            batch_y        = dto_data_set.getBatchSample(sample_nplists,batch_size)
+                sample_nplists = dto_data_set.label_nplists
+                batch_y        = dto_data_set.getBatchSample(sample_nplists,batch_size)
 
+                train_step.run(feed_dict={x: batch_x, y_: batch_y, keep_prob: dto_hyper_param.drop_rate})
+                train_accuracy = accuracy.eval(feed_dict={ x: batch_x, y_: batch_y, keep_prob: 1.0})
 
-            train_step.run(feed_dict={x: batch_x, y_: batch_y, keep_prob: dto_hyper_param.drop_rate})
-            train_accuracy = accuracy.eval(feed_dict={ x: batch_x, y_: batch_y, keep_prob: 1.0})
-            print('step %d, training accuracy %g' % (li, train_accuracy))
+                elapsed_time = kstd.getElapsedTime(base_time,"s")
+                base_time = kstd.getTime()
+                print('step %d, training accuracy %g (%ds)' % (li, train_accuracy,base_time))
 
-        test_x = dto_data_set.t_flat_image_nplists
-        y_predicted = y_cnn.eval(feed_dict={x: test_x, keep_prob: 1.0} )
-        resultSave(y_predicted,dto_case_meta.predicted_label_file_path)
+            kstd.echoBlanks(2)
+            #y_predicted = y_cnn.eval(feed_dict={x: test_x, keep_prob: 1.0} )
+            #resultSave(y_predicted,dto_case_meta.predicted_label_file_path)
 
-        saver = tf.train.Saver()
-        saver.save(sess, dto_case_meta.learned_parameter_file_path)
+            saver = tf.train.Saver()
+            saver.save(sess, dto_case_meta.learned_parameter_file_path)
 
-    kstd.echoBlank()
-    kstd.echoBlank()
+        elif( mode == MODE_PREDICTION ):
+            saver = tf.train.Saver()
+            saver.restore(sess, dto_case_meta.learned_parameter_file_path)
+
+            test_x = dto_data_set.t_flat_image_nplists
+            y_predicted = y_cnn.eval(feed_dict={x: test_x, keep_prob: 1.0} )
+            resultSave(y_predicted,dto_case_meta.predicted_label_file_path)
+
+    kstd.echoBlanks(2)
     kstd.echoIsAlready(process_name)
-
-
 
 if __name__ == "__main__":
 

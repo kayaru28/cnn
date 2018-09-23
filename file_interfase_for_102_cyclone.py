@@ -24,6 +24,7 @@ class filePath():
         self._output_dir    = self._common_dir
         self._updatePathes()
 
+        self.test_image_list = self._input_dir + "\\test_sample_list_{0:04d}.csv".format(self._case)
         self.prop = kstd.getScriptDir() + "\\properties_for_102_cyclone.py"
 
 
