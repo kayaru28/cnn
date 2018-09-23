@@ -155,12 +155,16 @@ if __name__ == "__main__":
     path = file_path.learned_param
     dto_case_meta.setLearnedParameterFilePath(path)
 
+    
+
+
     #######################################################
     # cnn executer
     #######################################################
     process_name = "convolution neural net"
 
     echoStartSpecial(process_name)
+
     cnn.cnnExecuter(dto_data_set,dto_hyper_param,dto_case_meta)
 
 

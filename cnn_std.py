@@ -302,7 +302,6 @@ def bias_variable(shape):
 
 def cnnExecuter(dto_data_set,dto_hyper_param,dto_case_meta):
 
-
     #####################################################
     # variables
     #####################################################
@@ -348,7 +347,6 @@ def cnnExecuter(dto_data_set,dto_hyper_param,dto_case_meta):
     
         kstd.echoIsAlready(process_name)
 
-
     #####################################################
     # bonding layer
     #####################################################
@@ -378,15 +376,10 @@ def cnnExecuter(dto_data_set,dto_hyper_param,dto_case_meta):
 
     kstd.echoIsAlready(process_name)
 
-
     #***************************************************
     # learning
     #***************************************************
-    kstd.echoBlank()
-    kstd.echoBlank()
-    kstd.echoBlank()
-    kstd.echoBlank()
-    kstd.echoBlank()
+    kstd.echoBlanks(5)
 
     cross_entropy      = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=y_, logits=y_cnn))
     train_step         = tf.train.AdamOptimizer(dto_hyper_param.learning_rate).minimize(cross_entropy)

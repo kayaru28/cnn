@@ -376,6 +376,9 @@ def echoAisB(name,var):
 
 
 #### layer 2 messages
+def echoBlanks(num):
+    for i in range(num):
+        echoBlank()
 
 def echoErrorOccured(detail=""):
     echoBlank()
