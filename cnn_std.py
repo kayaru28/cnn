@@ -21,13 +21,13 @@ MODE_PREDICTION = "Prediction"
 class DtoCaseMetaForTFCNN():
     def __init__(self):
         self.learned_parameter_file_path = os.path.join( kstd.getScriptDir(),"_param.ckpt")
-        self.predicted_label_file_path   = os.path.join( kstd.getScriptDir(),"_label.csv")
+        self.predicted_value_file_path   = os.path.join( kstd.getScriptDir(),"_label.csv")
 
     def setLearnedParameterFilePath(self,file_path):
         self.learned_parameter_file_path = file_path
         
-    def setPredictedLabelFilePath(self,file_path):
-        self.predicted_label_file_path = file_path
+    def setPredictedValueFilePath(self,file_path):
+        self.predicted_value_file_path = file_path
 
 class DtoDataSetForTFCNN():
     def __init__(self):
@@ -425,7 +425,7 @@ def cnnExecuter(mode,dto_data_set,dto_hyper_param,dto_case_meta):
 
             kstd.echoBlanks(2)
             #y_predicted = y_cnn.eval(feed_dict={x: test_x, keep_prob: 1.0} )
-            #resultSave(y_predicted,dto_case_meta.predicted_label_file_path)
+            #resultSave(y_predicted,dto_case_meta.predicted_value_file_path)
 
             saver = tf.train.Saver()
             saver.save(sess, dto_case_meta.learned_parameter_file_path)
@@ -436,7 +436,7 @@ def cnnExecuter(mode,dto_data_set,dto_hyper_param,dto_case_meta):
 
             test_x = dto_data_set.t_flat_image_nplists
             y_predicted = y_cnn.eval(feed_dict={x: test_x, keep_prob: 1.0} )
-            resultSave(y_predicted,dto_case_meta.predicted_label_file_path)
+            resultSave(y_predicted,dto_case_meta.predicted_value_file_path)
 
     kstd.echoBlanks(2)
     kstd.echoIsAlready(process_name)

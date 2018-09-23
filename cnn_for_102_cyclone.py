@@ -20,8 +20,7 @@ def echoStartSpecial(process=""):
 def echoIsAlreadySpecial(process=""):
     kstd.echoBlank()
     kstd.echoBar(15,"-- ")
-    print(str(kstd.getTimeyyyymmddhhmmss()))
-    kstd.echoIsAlready("    " + process)
+    kstd.echoIsAlready(process)
     kstd.echoBar(15,"-- ")
     kstd.echoBlank()
 
@@ -147,8 +146,8 @@ if __name__ == "__main__":
     path = file_path.learned_param
     dto_case_meta.setLearnedParameterFilePath(path)
 
-    path = file_path.predicted_label
-    dto_case_meta.setPredictedLabelFilePath(path)    
+    path = file_path.predicted_value
+    dto_case_meta.setPredictedValueFilePath(path)    
 
 
     #######################################################
@@ -157,9 +156,9 @@ if __name__ == "__main__":
     process_name = "convolution neural net"
     echoStartSpecial(process_name)
 
-    #process_name = cnn.MODE_LEARNING + " process"
-    #echoStartSpecial(process_name)
-    #cnn.cnnLearningExecuter(dto_data_set,dto_hyper_param,dto_case_meta)
+    process_name = cnn.MODE_LEARNING + " process"
+    echoStartSpecial(process_name)
+    cnn.cnnLearningExecuter(dto_data_set,dto_hyper_param,dto_case_meta)
 
     dto_data_set.firstlizationLabel(prop.num_of_label_kind)
     getDataSetForTest(dto_data_set,file_path)
