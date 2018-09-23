@@ -425,6 +425,8 @@ def cnnExecuter(dto_data_set,dto_hyper_param,dto_case_meta):
         saver = tf.train.Saver()
         saver.save(sess, dto_case_meta.learned_parameter_file_path)
 
+    kstd.echoBlank()
+    kstd.echoBlank()
     kstd.echoIsAlready(process_name)
 
 

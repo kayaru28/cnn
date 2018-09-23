@@ -6,6 +6,9 @@ import cnn_std as cnn
 import properties_for_102_cyclone as prop
 import numpy as np
 import file_interfase_for_102_cyclone as fi
+import sys
+
+MODE_SAVE = "save"
 
 def echoStartSpecial(process=""):
     kstd.echoBlank()
@@ -87,6 +90,14 @@ if __name__ == "__main__":
 
     case = 0
     file_path = fi.filePath(case)
+
+    mode = sys.argv[1]  
+    if mode == MODE_SAVE:
+        echoStartSpecial("save mode")
+        output_dir_path = kstd.getScriptDir() + "\\" + fi.getSaveDirName(case)
+        kstd.mkdir(output_dir_path)
+        kstd.cp(file_path.prop,output_dir_path)
+        file_path.updateOutputDir(output_dir_path)
 
     process_name = "hyper parameter setting"
     echoStartSpecial(process_name)

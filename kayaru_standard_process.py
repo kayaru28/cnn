@@ -20,8 +20,6 @@ def cp(file_path,copied_dir_path):
     else:
         file_name     = ntpath.basename(file_path)
         file_path_new = os.path.join(copied_dir_path,file_name) 
-        print(file_path_new)
-        print(file_path)
         shutil.copyfile(file_path, file_path_new)
         return NORMAL_CODE
 
