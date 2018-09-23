@@ -346,7 +346,10 @@ def echoBlank():
     print("")
 
 def echoStart(process=""):
-    print(str(getTimeyyyymmddhhmmss()) + "\t start process : " + process)
+    print(str(getTimeyyyymmddhhmmss()) + "\tstart process : " + process)
+
+def echoIsAlready(process=""):
+    print(str(getTimeyyyymmddhhmmss()) + "\t" + process + "\tis already")
 
 def echoBar(length="50",mark="*"):
     
@@ -362,8 +365,6 @@ def echoList1d(x_list):
     for row in x_list:
         print(row)
 
-def echoIsAlready(process=""):
-    print(process + "\tis already")
 
 def echoIsSetting(process="",var=""):
     print(str(process) + "\t: " + str(var) + "\tis setting")
