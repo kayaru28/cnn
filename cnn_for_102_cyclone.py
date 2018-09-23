@@ -91,12 +91,18 @@ if __name__ == "__main__":
     case = 0
     file_path = fi.filePath(case)
 
-    mode = sys.argv[1]  
+    if len(sys.argv) > 1:
+        mode = sys.argv[1]
+    else:
+        mode = ""  
+
     if mode == MODE_SAVE:
         echoStartSpecial("save mode")
         output_dir_path = kstd.getScriptDir() + "\\" + fi.getSaveDirName(case)
-        kstd.mkdir(output_dir_path)
-        kstd.cp(file_path.prop,output_dir_path)
+        exit_code = kstd.mkdir(output_dir_path)
+        kstd.judgeError(exit_code)
+        exit_code = kstd.cp(file_path.prop,output_dir_path)
+        kstd.judgeError(exit_code)
         file_path.updateOutputDir(output_dir_path)
 
     process_name = "hyper parameter setting"
