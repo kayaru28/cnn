@@ -445,7 +445,7 @@ def cnnExecuter(mode,dto_data_set,dto_hyper_param,dto_case_meta):
 
                 elapsed_time = kstd.getElapsedTime(base_time,"s")
                 base_time = kstd.getTime()
-                print('step %d, training accuracy %g (%ds)' % (li, train_accuracy,base_time))
+                print('step %d, training accuracy %g (%ds)' % (li, train_accuracy,elapsed_time))
 
             kstd.echoBlanks(2)
             #y_predicted = y_cnn.eval(feed_dict={x: test_x, keep_prob: 1.0} )
