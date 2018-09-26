@@ -54,6 +54,7 @@ class DtoDataSetForTFCNN():
         self.num_of_label_kind = num_of_label_kind
         self.label_nplists     = np.empty((0,self.num_of_label_kind))
         self.t_label_nplists   = np.empty((0,self.num_of_label_kind))
+        self.t_value_nplists   = np.empty((0,self.num_of_label_kind))
 
     def clearFlatImageList(self):
         self.flat_image_nplist = np.empty((0,self.image_list_size))
@@ -92,12 +93,18 @@ class DtoDataSetForTFCNN():
         self.label_nplists = np.insert(self.label_nplists,0,label_nplist,axis = 0)
         return kstd.NORMAL_CODE
 
-
     def addTestLabelList(self,label_nplist):
         if not self.checkLabelSize(self.num_of_label_kind,label_nplist):
             return kstd.ERROR_CODE
 
-        self.label_nplists = np.insert(self.t_label_nplists,0,label_nplist,axis = 0)
+        self.t_label_nplists = np.insert(self.t_label_nplists,0,label_nplist,axis = 0)
+        return kstd.NORMAL_CODE
+
+    def addTestValueList(self,value_nplist):
+        if not self.checkLabelSize(self.num_of_label_kind,value_nplist):
+            return kstd.ERROR_CODE
+
+        self.t_value_nplists = np.insert(self.t_value_nplists,0,value_nplist,axis = 0)
         return kstd.NORMAL_CODE
 
     def checkLabelSize(self,num_of_label_kind,label_list):
@@ -283,6 +290,21 @@ def resultSave(result_lists,file_path):
     csv_writer.writeOfArray2d(result_lists)
     csv_writer.closeFile()
 
+def convValueToLabel(value_nplist):
+    if(value_nplist.ndim == 1):
+        max_value = 0
+        for v in value_nplist:
+            if(max_value > v):
+                max_value = v
+
+        label_nplist = np.empty(len(value_nplist))
+
+        for vi in len(value_nplist):
+            if( value_nplist[vi] == max_value ):
+                label_nplist[vi] =  1
+            else:
+                label_nplist[vi] =  0
+
 ############################################################################
 #
 # part functions for cnn
@@ -391,7 +413,7 @@ def cnnExecuter(mode,dto_data_set,dto_hyper_param,dto_case_meta):
     # defining functions
     #***************************************************
     kstd.echoBlanks(5)
-    cross_entropy      = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=y_, logits=y_cnn))
+    cross_entropy      = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(labels=y_, logits=y_cnn))
     train_step         = tf.train.AdamOptimizer(dto_hyper_param.learning_rate).minimize(cross_entropy)
     correct_prediction = tf.equal(tf.argmax(y_cnn, 1), tf.argmax(y_, 1))
     accuracy           = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
@@ -406,6 +428,8 @@ def cnnExecuter(mode,dto_data_set,dto_hyper_param,dto_case_meta):
     base_time = kstd.getTime()
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
+
+        # learning
         if( mode == MODE_LEARNING ):
             for li in range(dto_hyper_param.learning_iteration):
                 batch_size     = dto_hyper_param.batch_size
@@ -430,12 +454,14 @@ def cnnExecuter(mode,dto_data_set,dto_hyper_param,dto_case_meta):
             saver = tf.train.Saver()
             saver.save(sess, dto_case_meta.learned_parameter_file_path)
 
+        # Prediction
         elif( mode == MODE_PREDICTION ):
             saver = tf.train.Saver()
             saver.restore(sess, dto_case_meta.learned_parameter_file_path)
 
             test_x = dto_data_set.t_flat_image_nplists
             y_predicted = y_cnn.eval(feed_dict={x: test_x, keep_prob: 1.0} )
+            dto_data_set.addTestValueList(y_predicted)
             resultSave(y_predicted,dto_case_meta.predicted_value_file_path)
 
     kstd.echoBlanks(2)

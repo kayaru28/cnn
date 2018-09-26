@@ -39,7 +39,6 @@ def readListData(path):
 def getDataSet(dto_data_set,file_path):
 
     ### image data reading
-    dto_data_set.firstlizationImage(prop.image_wigth,prop.image_height)
 
     path = file_path.image_list
     x_list = readListData(path)
@@ -48,7 +47,6 @@ def getDataSet(dto_data_set,file_path):
     kstd.judgeError(exit_code)
 
     ### label data reading
-    dto_data_set.firstlizationLabel(prop.num_of_label_kind)
 
     path = file_path.label_list
     x_list = readListData(path)
@@ -73,6 +71,31 @@ def varCheckSpecial(dto,process_name):
         kstd.echoErrorOccured(process_name + ":: varCheck")
         kstd.echoErrorCodeIs(dto.varCheck())
         kstd.exit()
+
+def getPredictedLabelNpList(dto_data_set):
+    length = dto_data_set.t_value_nplists.shape[0]
+
+    for li in range(length):
+        var_list = dto_data_set.t_value_nplists[li]
+        axis     = var_list.shape[0]
+        var_max  = var_list[0]
+        for ai in range(axis):
+            if var_max < var_list[ai]:
+                var_max = var_list[ai]
+
+        x_nplists = np.empty((0,dto_data_set.num_of_label_kind))
+        x_nplist  = []
+        for ai in range(axis):
+            if var_max == var_list[ai]:
+                label = 1
+            else:
+                label = 0
+            x_nplist = np.append(x_nplist,label)
+        x_nplists = np.insert(x_nplists,0,x_nplist,axis = 0)
+
+        dto_data_set.addTestLabelList(x_nplists)
+
+    return kstd.NORMAL_CODE
 
 #####################################################################################
 #####################################################################################
@@ -130,17 +153,13 @@ if __name__ == "__main__":
     varCheckSpecial(dto_hyper_param,process_name)
 
     #######################################################
-    # data set setting
+    # dto setting
     #######################################################
-    process_name = "data set setting"
+    process_name = "dto setting"
     echoStartSpecial(process_name)
-
+    
     dto_data_set = cnn.DtoDataSetForTFCNN()
-    
-    getDataSet(dto_data_set,file_path)
 
-    varCheckSpecial(dto_data_set,process_name)
-    
     dto_case_meta = cnn.DtoCaseMetaForTFCNN()
 
     path = file_path.learned_param
@@ -156,13 +175,25 @@ if __name__ == "__main__":
     process_name = "convolution neural net"
     echoStartSpecial(process_name)
 
+
+    dto_data_set.firstlizationImage(prop.image_wigth,prop.image_height)
+    dto_data_set.firstlizationLabel(prop.num_of_label_kind)
+    getDataSet(dto_data_set,file_path)
+    varCheckSpecial(dto_data_set,process_name)
     process_name = cnn.MODE_LEARNING + " process"
     echoStartSpecial(process_name)
     cnn.cnnLearningExecuter(dto_data_set,dto_hyper_param,dto_case_meta)
-
+    
+    dto_data_set.firstlizationImage(prop.image_wigth,prop.image_height)
     dto_data_set.firstlizationLabel(prop.num_of_label_kind)
     getDataSetForTest(dto_data_set,file_path)
 
     process_name = cnn.MODE_PREDICTION + " process"
     echoStartSpecial(process_name)
     cnn.cnnPredictionExecuter(dto_data_set,dto_hyper_param,dto_case_meta)
+
+    getPredictedLabelNpList(dto_data_set)
+    cnn.resultSave(dto_data_set.t_value_nplists,file_path.predicted_value)
+    cnn.resultSave(dto_data_set.t_label_nplists,file_path.predicted_label)
+
+
