@@ -426,12 +426,14 @@ def cnnExecuter(mode,dto_data_set,dto_hyper_param,dto_case_meta):
     kstd.echoStart(process_name)
     kstd.echoBlanks(2)
     base_time = kstd.getTime()
+    bef_time = kstd.getTime()  
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
 
         # learning
         if( mode == MODE_LEARNING ):
-            for li in range(dto_hyper_param.learning_iteration):
+            iteration = dto_hyper_param.learning_iteration
+            for li in range(iteration):
                 batch_size     = dto_hyper_param.batch_size
                 
                 sample_nplists = dto_data_set.flat_image_nplists
@@ -442,10 +444,13 @@ def cnnExecuter(mode,dto_data_set,dto_hyper_param,dto_case_meta):
 
                 train_step.run(feed_dict={x: batch_x, y_: batch_y, keep_prob: dto_hyper_param.drop_rate})
                 train_accuracy = accuracy.eval(feed_dict={ x: batch_x, y_: batch_y, keep_prob: 1.0})
+                train_entropy  = cross_entropy.eval(feed_dict={x: batch_x, y_: batch_y, keep_prob: dto_hyper_param.drop_rate})
 
-                elapsed_time = kstd.getElapsedTime(base_time,"s")
-                base_time = kstd.getTime()
-                print('step %d, training accuracy %g (%ds)' % (li, train_accuracy,elapsed_time))
+                elapsed_time_1 = kstd.getElapsedTime(bef_time,"s")
+                elapsed_time_n = kstd.getElapsedTime(base_time,"m")
+                bef_time = kstd.getTime()  
+                print('step %4d/%d, accuracy %g, entropy %g (%ds/%dm) '
+                       % (li, iteration ,train_accuracy,train_entropy,elapsed_time_1,elapsed_time_n))
 
             kstd.echoBlanks(2)
             #y_predicted = y_cnn.eval(feed_dict={x: test_x, keep_prob: 1.0} )
