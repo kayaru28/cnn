@@ -356,6 +356,12 @@ def cnnExecuter(mode,dto_data_set,dto_hyper_param,dto_case_meta):
     #####################################################
     kstd.echoStart("convlution layer setting")
 
+    x_first_value = ""
+    W_conv = [x_first_value] * dto_hyper_param.num_of_conv_layer
+    b_conv = [x_first_value] * dto_hyper_param.num_of_conv_layer
+    h_conv = [x_first_value] * dto_hyper_param.num_of_conv_layer
+    h_pool = [x_first_value] * dto_hyper_param.num_of_conv_layer
+    
     for li in range(dto_hyper_param.num_of_conv_layer):
 
         process_name = "No." + str(li) + " layer convolution"
@@ -369,12 +375,12 @@ def cnnExecuter(mode,dto_data_set,dto_hyper_param,dto_case_meta):
         stride_pool   = dto_hyper_param.stride_pool[li]
         shape_pool    = dto_hyper_param.shape_pool[li]
 
-        W_conv = weight_variable([filter_wigth,filter_height, num_of_in_ch, num_of_out_ch])
-        b_conv = bias_variable([num_of_out_ch])
+        W_conv[li] = weight_variable([filter_wigth,filter_height, num_of_in_ch, num_of_out_ch])
+        b_conv[li] = bias_variable([num_of_out_ch])
+        h_conv[li] = tf.nn.relu(conv2d(x_image, W_conv[li], stride_conv) + b_conv[li])
+        h_pool[li] = max_pool_2x2(h_conv[li], shape_pool, stride_pool)
 
-        h_conv  = tf.nn.relu(conv2d(x_image, W_conv, stride_conv) + b_conv)
-        h_pool  = max_pool_2x2(h_conv, shape_pool, stride_pool)
-        x_image = h_pool
+        x_image = h_pool[li]
 
         dto_hyper_param.setNumOfInCh(num_of_out_ch)
     
@@ -435,7 +441,7 @@ def cnnExecuter(mode,dto_data_set,dto_hyper_param,dto_case_meta):
         # learning
         if( mode == MODE_LEARNING ):
             iteration = dto_hyper_param.learning_iteration
-            for li in range(iteration):
+            for ii in range(iteration):
                 batch_size     = dto_hyper_param.batch_size
                 
                 sample_nplists = dto_data_set.flat_image_nplists
@@ -451,8 +457,9 @@ def cnnExecuter(mode,dto_data_set,dto_hyper_param,dto_case_meta):
                 elapsed_time_1 = kstd.getElapsedTime(bef_time,"s")
                 elapsed_time_n = kstd.getElapsedTime(base_time,"m")
                 bef_time = kstd.getTime()  
-                print('step %4d/%d,\taccuracy %0.2g,\tentropy %0.2g \t(%ds/%dm) '
-                       % (li, iteration ,train_accuracy,train_entropy,elapsed_time_1,elapsed_time_n))
+
+                print('step %4d/%d,\taccuracy %0.2g,\tentropy %0.2g \t(%0.1gs/%dm) '
+                       % (ii + 1, iteration ,train_accuracy,train_entropy,elapsed_time_1,elapsed_time_n))
 
             kstd.echoBlanks(2)
             #y_predicted = y_cnn.eval(feed_dict={x: test_x, keep_prob: 1.0} )
