@@ -195,5 +195,3 @@ if __name__ == "__main__":
     getPredictedLabelNpList(dto_data_set)
     cnn.resultSave(dto_data_set.t_value_nplists,file_path.predicted_value)
     cnn.resultSave(dto_data_set.t_label_nplists,file_path.predicted_label)
-
-

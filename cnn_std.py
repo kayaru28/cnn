@@ -413,7 +413,9 @@ def cnnExecuter(mode,dto_data_set,dto_hyper_param,dto_case_meta):
     # defining functions
     #***************************************************
     kstd.echoBlanks(5)
-    cross_entropy      = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(labels=y_, logits=y_cnn))
+    #cross_entropy      = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(labels=y_, logits=y_cnn))
+    cross_entropy      = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(labels=y_, logits=y_cnn))
+   
     train_step         = tf.train.AdamOptimizer(dto_hyper_param.learning_rate).minimize(cross_entropy)
     correct_prediction = tf.equal(tf.argmax(y_cnn, 1), tf.argmax(y_, 1))
     accuracy           = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
@@ -449,7 +451,7 @@ def cnnExecuter(mode,dto_data_set,dto_hyper_param,dto_case_meta):
                 elapsed_time_1 = kstd.getElapsedTime(bef_time,"s")
                 elapsed_time_n = kstd.getElapsedTime(base_time,"m")
                 bef_time = kstd.getTime()  
-                print('step %4d/%d, accuracy %g, entropy %g (%ds/%dm) '
+                print('step %4d/%d,\taccuracy %0.2g,\tentropy %0.2g \t(%ds/%dm) '
                        % (li, iteration ,train_accuracy,train_entropy,elapsed_time_1,elapsed_time_n))
 
             kstd.echoBlanks(2)
