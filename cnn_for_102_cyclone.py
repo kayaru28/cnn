@@ -187,6 +187,8 @@ if __name__ == "__main__":
     path = file_path.predicted_value
     dto_case_meta.setPredictedValueFilePath(path)    
 
+    path = file_path.output_dir
+    dto_case_meta.setSummaryDirPath(path)
 
     #######################################################
     # cnn executer

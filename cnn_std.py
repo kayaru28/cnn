@@ -22,12 +22,16 @@ class DtoCaseMetaForTFCNN():
     def __init__(self):
         self.learned_parameter_file_path = os.path.join( kstd.getScriptDir(),"_param.ckpt")
         self.predicted_value_file_path   = os.path.join( kstd.getScriptDir(),"_label.csv")
+        self.summary_dir_path            = kstd.getScriptDir()
 
     def setLearnedParameterFilePath(self,file_path):
         self.learned_parameter_file_path = file_path
         
     def setPredictedValueFilePath(self,file_path):
-        self.predicted_value_file_path = file_path
+        self.predicted_value_file_path   = file_path
+
+    def setSummaryDirPath(self,dir_path):
+        self.summary_dir_path            = dir_path
 
 class DtoDataSetForTFCNN():
     def __init__(self):
@@ -363,7 +367,7 @@ def cnnExecuter(mode,dto_data_set,dto_hyper_param,dto_case_meta):
     #####################################################
     # convolution layer
     #####################################################
-    kstd.echoStart("convlution layer setting")
+    kstd.echoStart("convolution layer setting")
 
     x_first_value = ""
     W_conv = [x_first_value] * dto_hyper_param.num_of_conv_layer
@@ -372,83 +376,101 @@ def cnnExecuter(mode,dto_data_set,dto_hyper_param,dto_case_meta):
     h_pool = [x_first_value] * dto_hyper_param.num_of_conv_layer
     
     for li in range(dto_hyper_param.num_of_conv_layer):
+        with tf.name_scope('convolution_layer_no.%d' % (li) ) as scope:
+            process_name = "No." + str(li) + " layer convolution"
+            kstd.echoStart(process_name)
 
-        process_name = "No." + str(li) + " layer convolution"
-        kstd.echoStart(process_name)
+            filter_wigth  = dto_hyper_param.filter_wigth[li]
+            filter_height = dto_hyper_param.filter_height[li]
+            num_of_in_ch  = dto_hyper_param.num_of_in_ch
+            num_of_out_ch = dto_hyper_param.num_of_out_ch[li]
+            stride_conv   = dto_hyper_param.stride_conv[li]
+            stride_pool   = dto_hyper_param.stride_pool[li]
+            shape_pool    = dto_hyper_param.shape_pool[li]
 
-        filter_wigth  = dto_hyper_param.filter_wigth[li]
-        filter_height = dto_hyper_param.filter_height[li]
-        num_of_in_ch  = dto_hyper_param.num_of_in_ch
-        num_of_out_ch = dto_hyper_param.num_of_out_ch[li]
-        stride_conv   = dto_hyper_param.stride_conv[li]
-        stride_pool   = dto_hyper_param.stride_pool[li]
-        shape_pool    = dto_hyper_param.shape_pool[li]
+            W_conv[li] = weight_variable([filter_wigth,filter_height, num_of_in_ch, num_of_out_ch])
+            b_conv[li] = bias_variable([num_of_out_ch])
+            h_conv[li] = tf.nn.relu(conv2d(x_image, W_conv[li], stride_conv) + b_conv[li])
+            h_pool[li] = max_pool_2x2(h_conv[li], shape_pool, stride_pool)
 
-        W_conv[li] = weight_variable([filter_wigth,filter_height, num_of_in_ch, num_of_out_ch])
-        b_conv[li] = bias_variable([num_of_out_ch])
-        h_conv[li] = tf.nn.relu(conv2d(x_image, W_conv[li], stride_conv) + b_conv[li])
-        h_pool[li] = max_pool_2x2(h_conv[li], shape_pool, stride_pool)
+            x_image = h_pool[li]
 
-        x_image = h_pool[li]
+            dto_hyper_param.setNumOfInCh(num_of_out_ch)
+        
+            kstd.echoIsAlready(process_name)
 
-        dto_hyper_param.setNumOfInCh(num_of_out_ch)
-    
-        kstd.echoIsAlready(process_name)
+            tf.summary.histogram('No%02d01_W_conv' % (li), W_conv[li])
+            tf.summary.histogram('No%02d01_b_conv' % (li), b_conv[li])
+
 
     #####################################################
     # bonding layer
     #####################################################
-
-    process_name = "bonding layer setting"
-    kstd.echoStart(process_name)
-
-    num_wigth   = x_image.shape[AXIS_X_IMAGE_WIGTH]
-    num_height  = x_image.shape[AXIS_X_IMAGE_HEIGHT]
-    num_channel = x_image.shape[AXIS_X_IMAGE_CHANNEL]
-
-    total_image_pixels = int(num_wigth * num_height * num_channel)
-
-    W_bond       = weight_variable([total_image_pixels, dto_hyper_param.num_of_hidden_layer])
-    b_bond       = bias_variable([dto_hyper_param.num_of_hidden_layer])
     
-    x_image_flat = tf.reshape(x_image, [-1, total_image_pixels])
-    h_bond       = tf.nn.relu(tf.matmul(x_image_flat, W_bond) + b_bond)
+    with tf.name_scope('bonding_layer') as scope:
+
+        process_name = "bonding layer setting"
+        kstd.echoStart(process_name)
+
+        num_wigth   = x_image.shape[AXIS_X_IMAGE_WIGTH]
+        num_height  = x_image.shape[AXIS_X_IMAGE_HEIGHT]
+        num_channel = x_image.shape[AXIS_X_IMAGE_CHANNEL]
+
+        total_image_pixels = int(num_wigth * num_height * num_channel)
+
+        W_bond       = weight_variable([total_image_pixels, dto_hyper_param.num_of_hidden_layer])
+        b_bond       = bias_variable([dto_hyper_param.num_of_hidden_layer])
+        
+        x_image_flat = tf.reshape(x_image, [-1, total_image_pixels])
+        h_bond       = tf.nn.relu(tf.matmul(x_image_flat, W_bond) + b_bond)
+        
+        keep_prob    = tf.placeholder(tf.float32)
+        h_bond_drop  = tf.nn.dropout(h_bond, keep_prob)
+
+        W_bond2 = weight_variable([dto_hyper_param.num_of_hidden_layer,dto_data_set.num_of_label_kind])
+        b_bond2 = bias_variable([dto_data_set.num_of_label_kind])
+
+        y_cnn = tf.matmul(h_bond_drop, W_bond2) + b_bond2
+
+        kstd.echoIsAlready(process_name)
+
+        tf.summary.histogram('No%02d01_W_bond' % (11), W_bond)
+        tf.summary.histogram('No%02d02_b_bond' % (11), b_bond)
+        tf.summary.histogram('No%02d01_W_bond' % (12), W_bond2)
+        tf.summary.histogram('No%02d02_b_bond' % (12), b_bond2)
     
-    keep_prob    = tf.placeholder(tf.float32)
-    h_bond_drop  = tf.nn.dropout(h_bond, keep_prob)
-
-    W_bond2 = weight_variable([dto_hyper_param.num_of_hidden_layer,dto_data_set.num_of_label_kind])
-    b_bond2 = bias_variable([dto_data_set.num_of_label_kind])
-
-    y_cnn = tf.matmul(h_bond_drop, W_bond2) + b_bond2
-
-    kstd.echoIsAlready(process_name)
-
 
     #***************************************************
     # defining : learing rate 
     #***************************************************
-    lr_update_count  = tf.placeholder(tf.int32)
-    lr_update_weight = tf.subtract( 1.0 , tf.cast( tf.divide(lr_update_count,dto_hyper_param.learning_iteration), tf.float32 ) )
-    lr_update_base   = tf.subtract( dto_hyper_param.learning_rate_max , dto_hyper_param.learning_rate_min )
+    with tf.name_scope('learning_rate_updater') as scope:
+        lr_update_count      = tf.placeholder(tf.int32)
+        lr_update_weight     = tf.subtract( 1.0 , tf.cast( tf.divide(lr_update_count,dto_hyper_param.learning_iteration), tf.float32 ) )
+        lr_update_base       = tf.subtract( dto_hyper_param.learning_rate_max , dto_hyper_param.learning_rate_min )
+        
+        d_lr                 =  tf.multiply( lr_update_base , lr_update_weight ) 
+        
+        learning_rate        = tf.Variable(tf.constant(dto_hyper_param.learning_rate_max))
+        learning_rate_new    = tf.add(dto_hyper_param.learning_rate_min , d_lr)
+        learning_rate_update = tf.assign(learning_rate , learning_rate_new )
+        
+        tf.summary.scalar("learning_rate" , learning_rate)
 
-    d_lr      =  tf.multiply( lr_update_base , lr_update_weight ) 
-
-    learning_rate        = tf.Variable(tf.constant(dto_hyper_param.learning_rate_max))
-    learning_rate_new    = tf.add(dto_hyper_param.learning_rate_min , d_lr)
-    learning_rate_update = tf.assign(learning_rate , learning_rate_new )
 
     #***************************************************
     # defining : functions
     #***************************************************
-    kstd.echoBlanks(5)
-    #cross_entropy      = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(labels=y_, logits=y_cnn))
-    cross_entropy      = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(labels=y_, logits=y_cnn))
-   
-    train_step         = tf.train.AdamOptimizer(learning_rate).minimize(cross_entropy)
-    correct_prediction = tf.equal(tf.argmax(y_cnn, 1), tf.argmax(y_, 1))
-    accuracy           = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
-    kstd.echoBlanks(5)
+    with tf.name_scope('functions___loss_train_accuracy') as scope:
+        kstd.echoBlanks(5)
+        #cross_entropy      = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(labels=y_, logits=y_cnn))
+        cross_entropy      = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(labels=y_, logits=y_cnn))
+       
+        train_step         = tf.train.AdamOptimizer(learning_rate).minimize(cross_entropy)
+        correct_prediction = tf.equal(tf.argmax(y_cnn, 1), tf.argmax(y_, 1))
+        accuracy           = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+        kstd.echoBlanks(5)
+
+        tf.summary.scalar("accuracy" , accuracy)
 
     #***************************************************
     # learning or prediction
@@ -459,6 +481,10 @@ def cnnExecuter(mode,dto_data_set,dto_hyper_param,dto_case_meta):
     base_time = kstd.getTime()
     bef_time  = kstd.getTime()  
     with tf.Session() as sess:
+
+        summary_merged = tf.summary.merge_all()
+        summary_writer = tf.summary.FileWriter(dto_case_meta.summary_dir_path , sess.graph)
+
         sess.run(tf.global_variables_initializer())
 
         # learning
@@ -484,8 +510,11 @@ def cnnExecuter(mode,dto_data_set,dto_hyper_param,dto_case_meta):
                 elapsed_time_n = kstd.getElapsedTime(base_time,"m")
                 bef_time = kstd.getTime()  
 
-                print('step %4d/%d,\taccuracy %0.2g,\tentropy %0.2g \t(%0.1gs/%dm) '
+                print('step %4d/%d,\taccuracy %0.2g,\tentropy %0.2g \t(%ds/%dm) '
                        % (ii + 1, iteration ,train_accuracy,train_entropy,elapsed_time_1,elapsed_time_n))
+
+                summary = sess.run(summary_merged , feed_dict={x: batch_x, y_: batch_y, keep_prob: 1.0, lr_update_count:ii} )
+                summary_writer.add_summary(summary , ii)
 
             kstd.echoBlanks(2)
             #y_predicted = y_cnn.eval(feed_dict={x: test_x, keep_prob: 1.0} )
