@@ -132,8 +132,8 @@ if __name__ == "__main__":
     kstd.echoIsSetting(kstd.getPaddingString("num_of_conv_layer",length),str(dto_hyper_param.num_of_conv_layer) )
     dto_hyper_param.setNumOfHiddenLayer(prop.num_of_hidden_layer)
     kstd.echoIsSetting(kstd.getPaddingString("num_of_hidden_layer",length),str(dto_hyper_param.num_of_hidden_layer) )
-    dto_hyper_param.setDropRate(prop.drop_rate)
-    kstd.echoIsSetting(kstd.getPaddingString("drop_rate",length),str(dto_hyper_param.drop_rate) )
+    dto_hyper_param.setKeepRate(prop.keep_rate)
+    kstd.echoIsSetting(kstd.getPaddingString("keep_rate",length),str(dto_hyper_param.keep_rate) )
     dto_hyper_param.setLearningRate(prop.learning_rate)
     kstd.echoIsSetting(kstd.getPaddingString("learning_rate",length),str(dto_hyper_param.learning_rate))
     dto_hyper_param.setLearningIteration(prop.learning_iteration)
@@ -184,6 +184,7 @@ if __name__ == "__main__":
     echoStartSpecial(process_name)
     cnn.cnnLearningExecuter(dto_data_set,dto_hyper_param,dto_case_meta)
     
+    '''
     dto_data_set.firstlizationImage(prop.image_wigth,prop.image_height)
     dto_data_set.firstlizationLabel(prop.num_of_label_kind)
     getDataSetForTest(dto_data_set,file_path)
@@ -195,3 +196,4 @@ if __name__ == "__main__":
     getPredictedLabelNpList(dto_data_set)
     cnn.resultSave(dto_data_set.t_value_nplists,file_path.predicted_value)
     cnn.resultSave(dto_data_set.t_label_nplists,file_path.predicted_label)
+    '''

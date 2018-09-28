@@ -153,7 +153,7 @@ class DtoDataSetForTFCNN():
 class DtoHyperParameterForTFCNN():
     def __init__(self):
         self.NUM_OF_IN_CH_1      = 1
-        self.drop_rate           = 1.0
+        self.keep_rate           = 1.0
         self.num_of_conv_layer   = 0
         self.num_of_in_ch        = self.NUM_OF_IN_CH_1
         self.num_of_out_ch       = []
@@ -180,8 +180,8 @@ class DtoHyperParameterForTFCNN():
         self.ERROR_CODE_BY_BATCH_SIZE    = 111
 
 
-    def setDropRate(self,drop_rate):
-        self.drop_rate = drop_rate
+    def setDropRate(self,keep_rate):
+        self.keep_rate = keep_rate
 
     def setNumOfInCh(self,num_of_in_ch):
         self.num_of_in_ch = num_of_in_ch
@@ -434,7 +434,7 @@ def cnnExecuter(mode,dto_data_set,dto_hyper_param,dto_case_meta):
     kstd.echoStart(process_name)
     kstd.echoBlanks(2)
     base_time = kstd.getTime()
-    bef_time = kstd.getTime()  
+    bef_time  = kstd.getTime()  
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
 
@@ -450,9 +450,9 @@ def cnnExecuter(mode,dto_data_set,dto_hyper_param,dto_case_meta):
                 sample_nplists = dto_data_set.label_nplists
                 batch_y        = dto_data_set.getBatchSample(sample_nplists,batch_size)
 
-                train_step.run(feed_dict={x: batch_x, y_: batch_y, keep_prob: dto_hyper_param.drop_rate})
+                train_step.run(feed_dict={x: batch_x, y_: batch_y, keep_prob: dto_hyper_param.keep_rate})
                 train_accuracy = accuracy.eval(feed_dict={ x: batch_x, y_: batch_y, keep_prob: 1.0})
-                train_entropy  = cross_entropy.eval(feed_dict={x: batch_x, y_: batch_y, keep_prob: dto_hyper_param.drop_rate})
+                train_entropy  = cross_entropy.eval(feed_dict={x: batch_x, y_: batch_y, keep_prob: dto_hyper_param.keep_rate})
 
                 elapsed_time_1 = kstd.getElapsedTime(bef_time,"s")
                 elapsed_time_n = kstd.getElapsedTime(base_time,"m")
