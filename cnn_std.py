@@ -375,8 +375,8 @@ def cnnExecuter(mode,dto_data_set,dto_hyper_param,dto_case_meta):
     h_conv = [x_first_value] * dto_hyper_param.num_of_conv_layer
     h_pool = [x_first_value] * dto_hyper_param.num_of_conv_layer
     
-    for li in range(dto_hyper_param.num_of_conv_layer):
-        with tf.name_scope('convolution_layer_no.%d' % (li) ) as scope:
+    with tf.name_scope('convolution_layer') as scope:
+        for li in range(dto_hyper_param.num_of_conv_layer):
             process_name = "No." + str(li) + " layer convolution"
             kstd.echoStart(process_name)
 
