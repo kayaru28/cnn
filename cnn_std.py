@@ -163,7 +163,8 @@ class DtoHyperParameterForTFCNN():
         self.stride_pool         = [] 
         self.shape_pool          = [] 
         self.num_of_hidden_layer = 0
-        self.learning_rate       = 0
+        self.learning_rate_min   = 0
+        self.learning_rate_max   = 0
         self.learning_iteration  = 0
         self.batch_size          = 0
         
@@ -180,57 +181,63 @@ class DtoHyperParameterForTFCNN():
         self.ERROR_CODE_BY_BATCH_SIZE    = 111
 
 
-    def setDropRate(self,keep_rate):
+    def setKeepRate(self,keep_rate):
         self.keep_rate = keep_rate
+        return kstd.NORMAL_CODE
 
     def setNumOfInCh(self,num_of_in_ch):
         self.num_of_in_ch = num_of_in_ch
+        return kstd.NORMAL_CODE
 
     def setNumOfHiddenLayer(self,num_of_hidden_layer):
         self.num_of_hidden_layer = num_of_hidden_layer
+        return kstd.NORMAL_CODE
 
     def setNumOfConvLayer(self,num_of_conv_layer):
         self.num_of_conv_layer = num_of_conv_layer
+        return kstd.NORMAL_CODE
 
-    def setLearningRate(self,learning_rate):
-        self.learning_rate = learning_rate
+    def setLearningRate(self,var_min,var_max):
+        self.learning_rate_min = var_min
+        self.learning_rate_max = var_max
+        if var_min > var_max:
+            return kstd.ERROR_CODE
+        return kstd.NORMAL_CODE
 
     def setLearningIteration(self,learning_iteration):
         self.learning_iteration = learning_iteration
+        return kstd.NORMAL_CODE
 
     def setBatchSize(self,batch_size):
         self.batch_size = batch_size
+        return kstd.NORMAL_CODE
 
     def addFilterWigth(self,var):
         error_handler.assertionCheckIsInt(var,"var for filter wigth")
         self.filter_wigth.append(var)
+        return kstd.NORMAL_CODE
 
     def addFilterHeight(self,var):
         error_handler.assertionCheckIsInt(var,"var for filter height")
         self.filter_height.append(var)
+        return kstd.NORMAL_CODE
    
     def addNumOfOutCh(self,var):
         error_handler.assertionCheckIsInt(var,"var for channel out number")
         self.num_of_out_ch.append(var)
+        return kstd.NORMAL_CODE
 
     def addStrideConv(self,var_list):
         self.stride_conv.append(var_list)
+        return kstd.NORMAL_CODE
 
     def addStridePool(self,var_list):
         self.stride_pool.append(var_list)
+        return kstd.NORMAL_CODE
 
     def addShapePool(self,var_list):
         self.shape_pool.append(var_list)
-
-    def updateLearningRate(self,update_rate=0.9):
-        if update_rate > 1.0:
-            kstd.echoErrorOccured("learning_rate's update rate is over 1.0")
-            return kstd.ERROR_CODE
-        if update_rate <= 0:
-            kstd.echoErrorOccured("learning_rate's update rate is under 0")
-            return kstd.ERROR_CODE
-        kstd.echoAisB("learning_rate",self.learning_rate)
-        self.learning_rate = self.learning_rate * update_rate        
+        return kstd.NORMAL_CODE
 
     def varCheck(self):
         self.filter_wigth_size  = len(self.filter_wigth)
@@ -254,7 +261,9 @@ class DtoHyperParameterForTFCNN():
             return self.ERROR_CODE_BY_NUM_C_LAYER
         elif not self.num_of_hidden_layer > 0:
             return self.ERROR_CODE_BY_NUM_H_LAYER
-        elif not self.learning_rate > 0:
+        elif not self.learning_rate_max > 0:
+            return self.ERROR_CODE_BY_LEARNING_RATE
+        elif not self.learning_rate_min > 0:
             return self.ERROR_CODE_BY_LEARNING_RATE
         elif not self.learning_iteration > 0:
             return self.ERROR_CODE_BY_LEARNING_ITER
@@ -415,14 +424,28 @@ def cnnExecuter(mode,dto_data_set,dto_hyper_param,dto_case_meta):
 
     kstd.echoIsAlready(process_name)
 
+
     #***************************************************
-    # defining functions
+    # defining : learing rate 
+    #***************************************************
+    lr_update_count  = tf.placeholder(tf.int32)
+    lr_update_weight = tf.subtract( 1.0 , tf.cast( tf.divide(lr_update_count,dto_hyper_param.learning_iteration), tf.float32 ) )
+    lr_update_base   = tf.subtract( dto_hyper_param.learning_rate_max , dto_hyper_param.learning_rate_min )
+
+    d_lr      =  tf.multiply( lr_update_base , lr_update_weight ) 
+
+    learning_rate        = tf.Variable(tf.constant(dto_hyper_param.learning_rate_max))
+    learning_rate_new    = tf.add(dto_hyper_param.learning_rate_min , d_lr)
+    learning_rate_update = tf.assign(learning_rate , learning_rate_new )
+
+    #***************************************************
+    # defining : functions
     #***************************************************
     kstd.echoBlanks(5)
     #cross_entropy      = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(labels=y_, logits=y_cnn))
     cross_entropy      = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(labels=y_, logits=y_cnn))
    
-    train_step         = tf.train.AdamOptimizer(dto_hyper_param.learning_rate).minimize(cross_entropy)
+    train_step         = tf.train.AdamOptimizer(learning_rate).minimize(cross_entropy)
     correct_prediction = tf.equal(tf.argmax(y_cnn, 1), tf.argmax(y_, 1))
     accuracy           = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
     kstd.echoBlanks(5)
@@ -451,8 +474,11 @@ def cnnExecuter(mode,dto_data_set,dto_hyper_param,dto_case_meta):
                 batch_y        = dto_data_set.getBatchSample(sample_nplists,batch_size)
 
                 train_step.run(feed_dict={x: batch_x, y_: batch_y, keep_prob: dto_hyper_param.keep_rate})
+
                 train_accuracy = accuracy.eval(feed_dict={ x: batch_x, y_: batch_y, keep_prob: 1.0})
                 train_entropy  = cross_entropy.eval(feed_dict={x: batch_x, y_: batch_y, keep_prob: dto_hyper_param.keep_rate})
+
+                sess.run(learning_rate_update , feed_dict={lr_update_count:ii} )
 
                 elapsed_time_1 = kstd.getElapsedTime(bef_time,"s")
                 elapsed_time_n = kstd.getElapsedTime(base_time,"m")

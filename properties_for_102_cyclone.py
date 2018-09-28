@@ -20,7 +20,8 @@ image_height      = 64
 num_of_hidden_layer = 10
 num_of_conv_layer   = 2
 keep_rate           = 0.8
-learning_rate       = 0.001
+learning_rate_min   = 0.0001
+learning_rate_max   = 0.1
 learning_iteration  = 20
 batch_size          = 10
 

@@ -127,18 +127,37 @@ if __name__ == "__main__":
     # hyper parameter settings
     #######################################################
 
-    length = 20
-    dto_hyper_param.setNumOfConvLayer(prop.num_of_conv_layer)
+    length = 25
+
+    # num_of_conv_layer
+    exit_code = dto_hyper_param.setNumOfConvLayer(prop.num_of_conv_layer)
+    kstd.judgeError(exit_code)
     kstd.echoIsSetting(kstd.getPaddingString("num_of_conv_layer",length),str(dto_hyper_param.num_of_conv_layer) )
-    dto_hyper_param.setNumOfHiddenLayer(prop.num_of_hidden_layer)
+
+    # num_of_hidden_layer    
+    exit_code = dto_hyper_param.setNumOfHiddenLayer(prop.num_of_hidden_layer)
+    kstd.judgeError(exit_code)
     kstd.echoIsSetting(kstd.getPaddingString("num_of_hidden_layer",length),str(dto_hyper_param.num_of_hidden_layer) )
-    dto_hyper_param.setKeepRate(prop.keep_rate)
+    
+    # keep_rate
+    exit_code = dto_hyper_param.setKeepRate(prop.keep_rate)
+    kstd.judgeError(exit_code)
     kstd.echoIsSetting(kstd.getPaddingString("keep_rate",length),str(dto_hyper_param.keep_rate) )
-    dto_hyper_param.setLearningRate(prop.learning_rate)
-    kstd.echoIsSetting(kstd.getPaddingString("learning_rate",length),str(dto_hyper_param.learning_rate))
-    dto_hyper_param.setLearningIteration(prop.learning_iteration)
+    
+    # learning_rate
+    exit_code = dto_hyper_param.setLearningRate(prop.learning_rate_min,prop.learning_rate_max)
+    kstd.judgeError(exit_code)
+    kstd.echoIsSetting(kstd.getPaddingString("learning_rate_min",length),str(dto_hyper_param.learning_rate_min))
+    kstd.echoIsSetting(kstd.getPaddingString("learning_rate_max",length),str(dto_hyper_param.learning_rate_max))
+    
+    # learning_iter
+    exit_code = dto_hyper_param.setLearningIteration(prop.learning_iteration)
+    kstd.judgeError(exit_code)
     kstd.echoIsSetting(kstd.getPaddingString("learning_iter",length),str(dto_hyper_param.learning_iteration))
-    dto_hyper_param.setBatchSize(prop.batch_size)
+    
+    # batch_size
+    exit_code = dto_hyper_param.setBatchSize(prop.batch_size)
+    kstd.judgeError(exit_code)
     kstd.echoIsSetting(kstd.getPaddingString("batch_size",length),str(dto_hyper_param.batch_size))
     
     # conv and pooling filter parameter
