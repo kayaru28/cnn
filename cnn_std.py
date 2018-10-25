@@ -142,21 +142,22 @@ class DtoDataSetForTFCNN():
 
         return kstd.NORMAL_CODE
 
-    def getBatchSample(self,sample_nplists,batch_size):
+    def getBatchSample(self,batch_size):
 
-        self.lists_length = sample_nplists.shape[0]
-        self.list_size    = sample_nplists.shape[1]
+        self.lists_length = self.flat_image_nplists.shape[0]
 
-        self.ans_nplists = np.empty((0,self.list_size))
+        self.ans_sample = np.empty((0,self.image_list_size))
+        self.ans_label  = np.empty((0,self.num_of_label_kind))
 
         self.index_0     = 0
         self.index_n     = self.lists_length - 1
 
         for bi in range(batch_size):
             self.index       = rand.getVarInt(self.index_0,self.index_n)
-            self.ans_nplists = np.insert(self.ans_nplists,0,sample_nplists[self.index],axis = 0)
+            self.ans_sample = np.insert(self.ans_sample,0,self.flat_image_nplists[self.index],axis = 0)
+            self.ans_label  = np.insert(self.ans_label ,0,self.label_nplists[self.index],axis = 0)
 
-        return self.ans_nplists
+        return self.ans_sample , self.ans_label
         
 class DtoHyperParameterForTFCNN():
     def __init__(self):
@@ -221,8 +222,8 @@ class DtoHyperParameterForTFCNN():
         self.batch_size = batch_size
         return kstd.NORMAL_CODE
 
-    def setFlagPool(self,flag)
-        if not flag = FLAG_MAX_POOL and flag = FLAG_AVG_POOL:
+    def setFlagPool(self,flag):
+        if not flag == FLAG_MAX_POOL and flag == FLAG_AVG_POOL:
             self.flag_pool = FLAG_MAX_POOL
             return kstd.ERROR_CODE
 
@@ -359,13 +360,13 @@ def bias_variable(shape):
     initial = tf.constant(0.1, shape=shape)
     return tf.Variable(initial)
 
-def cnnLearningExecuter(dto_data_set,dto_hyper_param,dto_case_meta):
+def cnnLearningExecuter(dto_data_set_1,dto_data_set_2,dto_hyper_param,dto_case_meta):
     mode = MODE_LEARNING
-    cnnExecuter(mode,dto_data_set,dto_hyper_param,dto_case_meta)
+    cnnExecuter(mode,dto_data_set_1,dto_data_set_2,dto_hyper_param,dto_case_meta)
 
 def cnnPredictionExecuter(dto_data_set,dto_hyper_param,dto_case_meta):
     mode = MODE_PREDICTION
-    cnnExecuter(mode,dto_data_set,dto_hyper_param,dto_case_meta)
+    cnnExecuter(mode,dto_data_set_1,dto_data_set_2,dto_hyper_param,dto_case_meta)
 
 def bondActivationFunc(x):
     return tf.nn.relu(x)
@@ -375,20 +376,25 @@ def convActivationFunc(x):
     return tf.nn.relu(x)
     #return tf.nn.sigmoid(x)
 
-def cnnExecuter(mode,dto_data_set,dto_hyper_param,dto_case_meta):
+def cnnExecuter(mode,dto_data_set_1,dto_data_set_2,dto_hyper_param,dto_case_meta):
 
     #####################################################
     # variables
     #####################################################
     
     x_size = dto_data_set.image_list_size
-    x      = tf.placeholder(tf.float32, shape=[ None , x_size ])
+    x_1     = tf.placeholder(tf.float32, shape=[ None , x_size ])
+    x_2     = tf.placeholder(tf.float32, shape=[ None , x_size ])
     y_size = dto_data_set.num_of_label_kind
     y_     = tf.placeholder(tf.float32, shape=[ None , y_size ])
     
-    image_wigth  = dto_data_set.wigth
-    image_height = dto_data_set.height
-    x_image      = tf.reshape(x, [-1, image_wigth, image_height, 1])
+    image_wigth  = dto_data_set_1.wigth
+    image_height = dto_data_set_1.height
+    x_1_image    = tf.reshape(x_1, [-1, image_wigth, image_height, 1])
+
+    image_wigth  = dto_data_set_2.wigth
+    image_height = dto_data_set_2.height
+    x_2_image    = tf.reshape(x_2, [-1, image_wigth, image_height, 1])
 
     # W = tf.Variable(tf.zeros([num_of_image_pixels, num_of_answer_kind]))
     # b = tf.Variable(tf.zeros([NUM_OF_ANSWER_KIND]))
@@ -399,11 +405,18 @@ def cnnExecuter(mode,dto_data_set,dto_hyper_param,dto_case_meta):
     kstd.echoStart("convolution layer setting")
 
     x_first_value = ""
-    W_conv = [x_first_value] * dto_hyper_param.num_of_conv_layer
-    b_conv = [x_first_value] * dto_hyper_param.num_of_conv_layer
-    h_conv = [x_first_value] * dto_hyper_param.num_of_conv_layer
-    h_pool = [x_first_value] * dto_hyper_param.num_of_conv_layer
+    W_conv_1 = [x_first_value] * dto_hyper_param.num_of_conv_layer
+    b_conv_1 = [x_first_value] * dto_hyper_param.num_of_conv_layer
+    h_conv_1 = [x_first_value] * dto_hyper_param.num_of_conv_layer
+    h_pool_1 = [x_first_value] * dto_hyper_param.num_of_conv_layer
     
+    W_conv_2 = [x_first_value] * dto_hyper_param.num_of_conv_layer
+    b_conv_2 = [x_first_value] * dto_hyper_param.num_of_conv_layer
+    h_conv_2 = [x_first_value] * dto_hyper_param.num_of_conv_layer
+    h_pool_2 = [x_first_value] * dto_hyper_param.num_of_conv_layer
+
+
+
     with tf.name_scope('convolution_layer') as scope:
         for li in range(dto_hyper_param.num_of_conv_layer):
             process_name = "No." + str(li) + " layer convolution"
@@ -417,21 +430,32 @@ def cnnExecuter(mode,dto_data_set,dto_hyper_param,dto_case_meta):
             stride_pool   = dto_hyper_param.stride_pool[li]
             shape_pool    = dto_hyper_param.shape_pool[li]
 
-            W_conv[li] = weight_variable([filter_wigth,filter_height, num_of_in_ch, num_of_out_ch])
-            b_conv[li] = bias_variable([num_of_out_ch])
-            h_conv[li] = convActivationFunc(conv2d(x_image, W_conv[li], stride_conv) + b_conv[li])
-            h_pool[li] = pool_2x2(h_conv[li], shape_pool, stride_pool, dto_hyper_param.flag_pool)
+            W_conv_1[li] = weight_variable([filter_wigth,filter_height, num_of_in_ch, num_of_out_ch])
+            b_conv_1[li] = bias_variable([num_of_out_ch])
+            h_conv_1[li] = convActivationFunc(conv2d(x_1_image, W_conv[li], stride_conv) + b_conv[li])
+            h_pool_1[li] = pool_2x2(h_conv[li], shape_pool, stride_pool, dto_hyper_param.flag_pool)
 
-            x_image = h_pool[li]
+            x_1_image = h_pool[li]
+
+            W_conv_2[li] = weight_variable([filter_wigth,filter_height, num_of_in_ch, num_of_out_ch])
+            b_conv_2[li] = bias_variable([num_of_out_ch])
+            h_conv_2[li] = convActivationFunc(conv2d(x_2_image, W_conv[li], stride_conv) + b_conv[li])
+            h_pool_2[li] = pool_2x2(h_conv[li], shape_pool, stride_pool, dto_hyper_param.flag_pool)
+
+            x_2_image = h_pool[li]
 
             dto_hyper_param.setNumOfInCh(num_of_out_ch)
         
             kstd.echoIsAlready(process_name)
 
-            tf.summary.histogram('No%02d01_W_conv' % (li), W_conv[li])
-            tf.summary.histogram('No%02d02_b_conv' % (li), b_conv[li])
-            tf.summary.histogram('No%02d03_h_conv' % (li), h_conv[li])
-            tf.summary.histogram('No%02d04_h_pool' % (li), h_pool[li])
+            tf.summary.histogram('No%02d0101_W_conv' % (li), W_conv_1[li])
+            tf.summary.histogram('No%02d0102_b_conv' % (li), b_conv_1[li])
+            tf.summary.histogram('No%02d0103_h_conv' % (li), h_conv_1[li])
+            tf.summary.histogram('No%02d0104_h_pool' % (li), h_pool_1[li])
+            tf.summary.histogram('No%02d0201_W_conv' % (li), W_conv_2[li])
+            tf.summary.histogram('No%02d0202_b_conv' % (li), b_conv_2[li])
+            tf.summary.histogram('No%02d0203_h_conv' % (li), h_conv_2[li])
+            tf.summary.histogram('No%02d0204_h_pool' % (li), h_pool_2[li])
 
 
     #####################################################
@@ -443,17 +467,22 @@ def cnnExecuter(mode,dto_data_set,dto_hyper_param,dto_case_meta):
         process_name = "bonding layer setting"
         kstd.echoStart(process_name)
 
-        num_wigth   = x_image.shape[AXIS_X_IMAGE_WIGTH]
-        num_height  = x_image.shape[AXIS_X_IMAGE_HEIGHT]
-        num_channel = x_image.shape[AXIS_X_IMAGE_CHANNEL]
+        num_wigth   = x_1_image.shape[AXIS_X_IMAGE_WIGTH]
+        num_height  = x_1_image.shape[AXIS_X_IMAGE_HEIGHT]
+        num_channel = x_1_image.shape[AXIS_X_IMAGE_CHANNEL]
+        num_channel = num_channel + x_2_image.shape[AXIS_X_IMAGE_CHANNEL]
 
         total_image_pixels = int(num_wigth * num_height * num_channel)
 
         W_bond       = weight_variable([total_image_pixels, dto_hyper_param.num_of_hidden_layer])
         b_bond       = bias_variable([dto_hyper_param.num_of_hidden_layer])
         
-        x_image_flat = tf.reshape(x_image, [-1, total_image_pixels])
-        h_bond       = bondActivationFunc(tf.matmul(x_image_flat, W_bond) + b_bond)
+        x_1_image_flat = tf.reshape(x_1_image, [-1, total_image_pixels])
+        x_2_image_flat = tf.reshape(x_2_image, [-1, total_image_pixels])
+        x_image_flat   = x_1_image_flat
+        x_image_flat   = np.insert(x_image_flat,0,x_2_image_flat,axis = 0)
+
+        h_bond         = bondActivationFunc(tf.matmul(x_image_flat, W_bond) + b_bond)
         
         keep_prob    = tf.placeholder(tf.float32)
         h_bond_drop  = tf.nn.dropout(h_bond, keep_prob)
@@ -526,11 +555,7 @@ def cnnExecuter(mode,dto_data_set,dto_hyper_param,dto_case_meta):
             for ii in range(iteration):
                 batch_size     = dto_hyper_param.batch_size
                 
-                sample_nplists = dto_data_set.flat_image_nplists
-                batch_x        = dto_data_set.getBatchSample(sample_nplists,batch_size)
-
-                sample_nplists = dto_data_set.label_nplists
-                batch_y        = dto_data_set.getBatchSample(sample_nplists,batch_size)
+                batch_x , batch_y  = dto_data_set.getBatchSample(batch_size)
 
                 train_step.run(feed_dict={x: batch_x, y_: batch_y, keep_prob: dto_hyper_param.keep_rate})
 
