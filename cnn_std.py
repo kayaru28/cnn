@@ -18,6 +18,10 @@ AXIS_X_IMAGE_CHANNEL = 3
 MODE_LEARNING   = "Learning"
 MODE_PREDICTION = "Prediction"
 
+FLAG_MAX_POOL = "max_pool"
+FLAG_AVG_POOL = "average_pool"
+
+
 class DtoCaseMetaForTFCNN():
     def __init__(self):
         self.learned_parameter_file_path = os.path.join( kstd.getScriptDir(),"_param.ckpt")
@@ -171,6 +175,7 @@ class DtoHyperParameterForTFCNN():
         self.learning_rate_max   = 0
         self.learning_iteration  = 0
         self.batch_size          = 0
+        self.flag_pool           = FLAG_MAX_POOL
         
         self.ERROR_CODE_BY_F_W           = 101
         self.ERROR_CODE_BY_F_H           = 102
@@ -214,6 +219,14 @@ class DtoHyperParameterForTFCNN():
 
     def setBatchSize(self,batch_size):
         self.batch_size = batch_size
+        return kstd.NORMAL_CODE
+
+    def setFlagPool(self,flag)
+        if not flag = FLAG_MAX_POOL and flag = FLAG_AVG_POOL:
+            self.flag_pool = FLAG_MAX_POOL
+            return kstd.ERROR_CODE
+
+        self.flag_pool = flag
         return kstd.NORMAL_CODE
 
     def addFilterWigth(self,var):
@@ -329,6 +342,15 @@ def conv2d(x, W, stride):
 def max_pool_2x2(x,shape,stride):
     return tf.nn.max_pool(x, shape,stride, padding='SAME')
 
+def avg_pool_2x2(x,shape,stride):
+    return tf.nn.avg_pool(x, shape,stride, padding='SAME')
+
+def pool_2x2(x,shape,stride,flag=FLAG_MAX_POOL):
+    if flag == FLAG_MAX_POOL:
+        return max_pool_2x2(x,shape,stride)
+    elif flag == FLAG_AVG_POOL:
+        return avg_pool_2x2(x,shape,stride)
+
 def weight_variable(shape):
     initial = tf.truncated_normal(shape, stddev=0.1)
     return tf.Variable(initial)
@@ -345,6 +367,13 @@ def cnnPredictionExecuter(dto_data_set,dto_hyper_param,dto_case_meta):
     mode = MODE_PREDICTION
     cnnExecuter(mode,dto_data_set,dto_hyper_param,dto_case_meta)
 
+def bondActivationFunc(x):
+    return tf.nn.relu(x)
+    #return tf.nn.sigmoid(x)
+
+def convActivationFunc(x):
+    return tf.nn.relu(x)
+    #return tf.nn.sigmoid(x)
 
 def cnnExecuter(mode,dto_data_set,dto_hyper_param,dto_case_meta):
 
@@ -390,8 +419,8 @@ def cnnExecuter(mode,dto_data_set,dto_hyper_param,dto_case_meta):
 
             W_conv[li] = weight_variable([filter_wigth,filter_height, num_of_in_ch, num_of_out_ch])
             b_conv[li] = bias_variable([num_of_out_ch])
-            h_conv[li] = tf.nn.relu(conv2d(x_image, W_conv[li], stride_conv) + b_conv[li])
-            h_pool[li] = max_pool_2x2(h_conv[li], shape_pool, stride_pool)
+            h_conv[li] = convActivationFunc(conv2d(x_image, W_conv[li], stride_conv) + b_conv[li])
+            h_pool[li] = pool_2x2(h_conv[li], shape_pool, stride_pool, dto_hyper_param.flag_pool)
 
             x_image = h_pool[li]
 
@@ -400,7 +429,9 @@ def cnnExecuter(mode,dto_data_set,dto_hyper_param,dto_case_meta):
             kstd.echoIsAlready(process_name)
 
             tf.summary.histogram('No%02d01_W_conv' % (li), W_conv[li])
-            tf.summary.histogram('No%02d01_b_conv' % (li), b_conv[li])
+            tf.summary.histogram('No%02d02_b_conv' % (li), b_conv[li])
+            tf.summary.histogram('No%02d03_h_conv' % (li), h_conv[li])
+            tf.summary.histogram('No%02d04_h_pool' % (li), h_pool[li])
 
 
     #####################################################
@@ -422,7 +453,7 @@ def cnnExecuter(mode,dto_data_set,dto_hyper_param,dto_case_meta):
         b_bond       = bias_variable([dto_hyper_param.num_of_hidden_layer])
         
         x_image_flat = tf.reshape(x_image, [-1, total_image_pixels])
-        h_bond       = tf.nn.relu(tf.matmul(x_image_flat, W_bond) + b_bond)
+        h_bond       = bondActivationFunc(tf.matmul(x_image_flat, W_bond) + b_bond)
         
         keep_prob    = tf.placeholder(tf.float32)
         h_bond_drop  = tf.nn.dropout(h_bond, keep_prob)
@@ -436,6 +467,7 @@ def cnnExecuter(mode,dto_data_set,dto_hyper_param,dto_case_meta):
 
         tf.summary.histogram('No%02d01_W_bond' % (11), W_bond)
         tf.summary.histogram('No%02d02_b_bond' % (11), b_bond)
+        tf.summary.histogram('No%02d03_h_bond' % (11), h_bond)
         tf.summary.histogram('No%02d01_W_bond' % (12), W_bond2)
         tf.summary.histogram('No%02d02_b_bond' % (12), b_bond2)
     
@@ -462,8 +494,8 @@ def cnnExecuter(mode,dto_data_set,dto_hyper_param,dto_case_meta):
     #***************************************************
     with tf.name_scope('functions___loss_train_accuracy') as scope:
         kstd.echoBlanks(5)
-        #cross_entropy      = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(labels=y_, logits=y_cnn))
-        cross_entropy      = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(labels=y_, logits=y_cnn))
+        cross_entropy      = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(labels=y_, logits=y_cnn))
+        #cross_entropy      = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(labels=y_, logits=y_cnn))
        
         train_step         = tf.train.AdamOptimizer(learning_rate).minimize(cross_entropy)
         correct_prediction = tf.equal(tf.argmax(y_cnn, 1), tf.argmax(y_, 1))
@@ -482,13 +514,14 @@ def cnnExecuter(mode,dto_data_set,dto_hyper_param,dto_case_meta):
     bef_time  = kstd.getTime()  
     with tf.Session() as sess:
 
-        summary_merged = tf.summary.merge_all()
-        summary_writer = tf.summary.FileWriter(dto_case_meta.summary_dir_path , sess.graph)
-
         sess.run(tf.global_variables_initializer())
 
         # learning
         if( mode == MODE_LEARNING ):
+
+            summary_merged = tf.summary.merge_all()
+            summary_writer = tf.summary.FileWriter(dto_case_meta.summary_dir_path , sess.graph)
+
             iteration = dto_hyper_param.learning_iteration
             for ii in range(iteration):
                 batch_size     = dto_hyper_param.batch_size
