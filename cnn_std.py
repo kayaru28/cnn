@@ -6,7 +6,8 @@ import kayaru_standard_process_for_randomize as rand
 import kayaru_standard_process_for_error_handling as error_handler
 import kayaru_standard_messages as kstd_m
 import numpy as np
-import os
+import properties_for_cnn as prop
+import file_interfase_for_cnn as fi
 
 import tensorflow as tf
 
@@ -22,10 +23,10 @@ FLAG_MAX_POOL = "max_pool"
 FLAG_AVG_POOL = "average_pool"
 
 
-class DtoCaseMetaForTFCNN():
+class DtoOutputPathForTFCNN():
     def __init__(self):
-        self.learned_parameter_file_path = os.path.join( kstd.getScriptDir(),"_param.ckpt")
-        self.predicted_value_file_path   = os.path.join( kstd.getScriptDir(),"_label.csv")
+        self.learned_parameter_file_path = kstd.joinDirPathAndName(kstd.getScriptDir(),"_param.ckpt")
+        self.predicted_value_file_path   = kstd.joinDirPathAndName(kstd.getScriptDir(),"_label.csv")
         self.summary_dir_path            = kstd.getScriptDir()
 
     def setLearnedParameterFilePath(self,file_path):
@@ -38,127 +39,54 @@ class DtoCaseMetaForTFCNN():
         self.summary_dir_path            = dir_path
 
 class DtoDataSetForTFCNN():
-    def __init__(self):
-        self.height               = 0
-        self.wigth                = 0
-        self.image_list_size      = 0
-        self.num_of_label_kind    = 0
+    def __init__(self,wigth,height,num_of_label_kind):
+        self.firstlizationImage(wigth,height)
+        self.firstlizationLabel(num_of_label_kind)
 
-        self.ERROR_CODE_BY_WIGTH      = 101
-        self.ERROR_CODE_BY_HEIGHT     = 102
-        self.ERROR_CODE_BY_IMAGE_LIST = 103
-        self.ERROR_CODE_BY_LABEL_LIST = 104
-        self.ERROR_CODE_BY_LABEL_KIND = 105
-        self.ERROR_CODE_BY_TEST_LIST  = 106
+
+    # format func #########################################################################
 
     def firstlizationImage(self,wigth,height):
-        self.height               = height
-        self.wigth                = wigth
-        self.image_list_size      = self.wigth * self.height
-        self.flat_image_nplists   = np.empty((0,self.image_list_size))
-        self.t_flat_image_nplists = np.empty((0,self.image_list_size))
+        self.height                = height
+        self.wigth                 = wigth
+        self.image_list_size       = self.wigth * self.height
+        self.dtoNT_flat_image      = kstd.DtoNpTable(self.image_list_size)
 
     def firstlizationLabel(self,num_of_label_kind):
-        self.num_of_label_kind = num_of_label_kind
-        self.label_nplists     = np.empty((0,self.num_of_label_kind))
-        self.t_label_nplists   = np.empty((0,self.num_of_label_kind))
-        self.t_value_nplists   = np.empty((0,self.num_of_label_kind))
+        self.num_of_label_kind      = num_of_label_kind
+        self.dtoNT_label            = kstd.DtoNpTable(self.num_of_label_kind)
+        self.dtoNT_label_base_value = kstd.DtoNpTable(self.num_of_label_kind)
 
-    def clearFlatImageList(self):
-        self.flat_image_nplist = np.empty((0,self.image_list_size))
+    def clearFlatImageTable(self):
+        self.dtoNT_flat_image.clear()
 
-    def _varCheckAddFlatImageList(self,x_image_nplist):
-        if not image.checkImageSize(self.height,self.wigth,x_image_nplist):
-            echoXisNotSameSize("image_list")
-            if( self.image_list_size == 0 ):
-                echoNotFirstlization()
-            else:
-                kstd.echoAisB("height",self.height)
-                kstd.echoAisB("wigth",self.wigth)
-                kstd.echoAisB("nplist size",x_image_nplist.shape[1])
+    # add func #############################################################################
+
+    def _addTable(self,dtoNT,dtoNT_added,target_name):
+
+        having_col_size = dtoNT.getAttrColLength()
+        given_col_size  = dtoNT_added.getAttrColLength()
+        if not having_col_size == given_col_size:
+            echoXisNotSameSize(target_name)
+            kstd.echoAisB("having size",having_col_size)
+            kstd.echoAisB("nplist size",given_col_size)
             return kstd.ERROR_CODE
 
+        dtoNT.addTable(dtoNT_added)
         return kstd.NORMAL_CODE
 
-    def addFlatImageList(self,flat_image_nplist):
-        exit_code = self._varCheckAddFlatImageList(flat_image_nplist)
-        if exit_code==kstd.ERROR_CODE:
-            return exit_code
-        self.flat_image_nplists = np.insert(self.flat_image_nplists,0,flat_image_nplist,axis = 0)
-        return kstd.NORMAL_CODE
+    def addFlatImageTable(self,dtoNT_flat_image):
+        exit_code = self._addTable(self.dtoNT_flat_image,dtoNT_flat_image,"image_list")
+        return exit_code
 
-    def addTestFlatImageList(self,flat_image_nplist):
-        exit_code = self._varCheckAddFlatImageList(flat_image_nplist)
-        if (exit_code==kstd.ERROR_CODE) :
-            return exit_code
-        self.t_flat_image_nplists = np.insert(self.t_flat_image_nplists,0,flat_image_nplist,axis = 0)
-        return kstd.NORMAL_CODE
+    def addLabelTable(self,dtoNT_label):
+        exit_code = self._addTable(self.dtoNT_label,dtoNT_label,"label_list")
+        return exit_code
 
-    def addLabelList(self,label_nplist):
-        if not self.checkLabelSize(self.num_of_label_kind,label_nplist):
-            return kstd.ERROR_CODE
+    def addValueTable(self,dtoNT_value):
+        exit_code = self._addTable(self.dtoNT_label_base_value,dtoNT_value,"value_list")
+        return exit_code
 
-        self.label_nplists = np.insert(self.label_nplists,0,label_nplist,axis = 0)
-        return kstd.NORMAL_CODE
-
-    def addTestLabelList(self,label_nplist):
-        if not self.checkLabelSize(self.num_of_label_kind,label_nplist):
-            return kstd.ERROR_CODE
-
-        self.t_label_nplists = np.insert(self.t_label_nplists,0,label_nplist,axis = 0)
-        return kstd.NORMAL_CODE
-
-    def addTestValueList(self,value_nplist):
-        if not self.checkLabelSize(self.num_of_label_kind,value_nplist):
-            return kstd.ERROR_CODE
-
-        self.t_value_nplists = np.insert(self.t_value_nplists,0,value_nplist,axis = 0)
-        return kstd.NORMAL_CODE
-
-    def checkLabelSize(self,num_of_label_kind,label_list):
-        if kstd.isList(label_list):
-            lengeth = len(label_list)
-        else:
-            lengeth = label_list.shape[1]
-
-        if num_of_label_kind == lengeth:
-            return True
-        else:
-            return False
-
-    def varCheck(self):
-        kstd.echoBlank()
-
-        if not self.height > 0:
-            return self.ERROR_CODE_BY_HEIGHT
-        elif not self.wigth > 0:
-            return self.ERROR_CODE_BY_WIGTH
-        elif not self.num_of_label_kind > 0:
-            return self.ERROR_CODE_BY_LABEL_KIND
-        elif kstd.compareNpListSize(self.label_nplists,self.flat_image_nplists,1):
-            return self.ERROR_CODE_BY_IMAGE_LIST
-        #elif kstd.compareNpListSize(self.t_label_nplists,self.t_flat_image_nplists,1):
-        #    return self.ERROR_CODE_BY_TEST_LIST
-
-        return kstd.NORMAL_CODE
-
-    def getBatchSample(self,batch_size):
-
-        self.lists_length = self.flat_image_nplists.shape[0]
-
-        self.ans_sample = np.empty((0,self.image_list_size))
-        self.ans_label  = np.empty((0,self.num_of_label_kind))
-
-        self.index_0     = 0
-        self.index_n     = self.lists_length - 1
-
-        for bi in range(batch_size):
-            self.index       = rand.getVarInt(self.index_0,self.index_n)
-            self.ans_sample = np.insert(self.ans_sample,0,self.flat_image_nplists[self.index],axis = 0)
-            self.ans_label  = np.insert(self.ans_label ,0,self.label_nplists[self.index],axis = 0)
-
-        return self.ans_sample , self.ans_label
-        
 class DtoHyperParameterForTFCNN():
     def __init__(self):
         self.NUM_OF_IN_CH_1      = 1
@@ -178,19 +106,6 @@ class DtoHyperParameterForTFCNN():
         self.batch_size          = 0
         self.flag_pool           = FLAG_MAX_POOL
         
-        self.ERROR_CODE_BY_F_W           = 101
-        self.ERROR_CODE_BY_F_H           = 102
-        self.ERROR_CODE_BY_OUT_CH        = 103
-        self.ERROR_CODE_BY_STRIDE_C      = 104
-        self.ERROR_CODE_BY_STRIDE_P      = 105
-        self.ERROR_CODE_BY_SHAPE_P       = 106
-        self.ERROR_CODE_BY_NUM_C_LAYER   = 107
-        self.ERROR_CODE_BY_NUM_H_LAYER   = 108
-        self.ERROR_CODE_BY_LEARNING_RATE = 109
-        self.ERROR_CODE_BY_LEARNING_ITER = 110
-        self.ERROR_CODE_BY_BATCH_SIZE    = 111
-
-
     def setKeepRate(self,keep_rate):
         self.keep_rate = keep_rate
         return kstd.NORMAL_CODE
@@ -223,25 +138,26 @@ class DtoHyperParameterForTFCNN():
         return kstd.NORMAL_CODE
 
     def setFlagPool(self,flag):
-        if not flag == FLAG_MAX_POOL and flag == FLAG_AVG_POOL:
+        if flag == FLAG_MAX_POOL:
+            self.flag_pool = flag
+            return kstd.NORMAL_CODE
+
+        elif flag == FLAG_AVG_POOL:
+            self.flag_pool = flag
+            return kstd.NORMAL_CODE
+        else:
             self.flag_pool = FLAG_MAX_POOL
             return kstd.ERROR_CODE
 
-        self.flag_pool = flag
-        return kstd.NORMAL_CODE
-
     def addFilterWigth(self,var):
-        error_handler.assertionCheckIsInt(var,"var for filter wigth")
         self.filter_wigth.append(var)
         return kstd.NORMAL_CODE
 
     def addFilterHeight(self,var):
-        error_handler.assertionCheckIsInt(var,"var for filter height")
         self.filter_height.append(var)
         return kstd.NORMAL_CODE
    
     def addNumOfOutCh(self,var):
-        error_handler.assertionCheckIsInt(var,"var for channel out number")
         self.num_of_out_ch.append(var)
         return kstd.NORMAL_CODE
 
@@ -258,35 +174,35 @@ class DtoHyperParameterForTFCNN():
         return kstd.NORMAL_CODE
 
     def varCheck(self):
-        self.filter_wigth_size  = len(self.filter_wigth)
-        self.filter_height_size = len(self.filter_height)
-        self.out_ch_size        = len(self.num_of_out_ch)
-        self.stride_conv_size   = len(self.stride_conv)
-        self.stride_pool_size   = len(self.stride_pool)
-        self.shape_pool_size   = len(self.shape_pool)
+        size_filter_wigth  = len(self.filter_wigth)
+        size_filter_height = len(self.filter_height)
+        size_out_ch        = len(self.num_of_out_ch)
+        size_stride_conv   = len(self.stride_conv)
+        size_stride_pool   = len(self.stride_pool)
+        size_shape_pool    = len(self.shape_pool)
     
-        if self.filter_height_size   != self.filter_wigth_size:
-            return self.ERROR_CODE_BY_WIGTH
-        elif self.filter_height_size != self.out_ch_size:
-            return self.ERROR_CODE_BY_OUT_CH
-        elif self.filter_height_size != self.stride_conv_size:
-            return self.ERROR_CODE_BY_STRIDE_C
-        elif self.filter_height_size != self.stride_pool_size:
-            return self.ERROR_CODE_BY_STRIDE_P
-        elif self.filter_height_size != self.shape_pool_size:
-            return self.ERROR_CODE_BY_SHAPE_P
+        if size_filter_height != size_filter_wigth:
+            return kstd.ERROR_CODE
+        elif size_filter_height != size_out_ch:
+            return kstd.ERROR_CODE
+        elif size_filter_height != size_stride_conv:
+            return kstd.ERROR_CODE
+        elif size_filter_height != size_stride_pool:
+            return kstd.ERROR_CODE
+        elif size_filter_height != size_shape_pool:
+            return kstd.ERROR_CODE
         elif not self.num_of_conv_layer > 0:
-            return self.ERROR_CODE_BY_NUM_C_LAYER
+            return kstd.ERROR_CODE
         elif not self.num_of_hidden_layer > 0:
-            return self.ERROR_CODE_BY_NUM_H_LAYER
+            return kstd.ERROR_CODE
         elif not self.learning_rate_max > 0:
-            return self.ERROR_CODE_BY_LEARNING_RATE
+            return kstd.ERROR_CODE
         elif not self.learning_rate_min > 0:
-            return self.ERROR_CODE_BY_LEARNING_RATE
+            return kstd.ERROR_CODE
         elif not self.learning_iteration > 0:
-            return self.ERROR_CODE_BY_LEARNING_ITER
+            return kstd.ERROR_CODE
         elif not self.batch_size > 0:
-            return self.ERROR_CODE_BY_BATCH_SIZE
+            return kstd.ERROR_CODE
 
         return kstd.NORMAL_CODE
 
@@ -311,6 +227,27 @@ def echoNotFirstlization():
 # standard functions
 #
 ############################################################################
+def createRandomIndexList(dtoNL_index,dtoNT_source,batch_size):
+    index_0     = 0
+
+    lists_length = dtoNT_source.getAttrRowLength()
+    index_n      = lists_length - 1
+
+    for bi in range(batch_size):
+        index = rand.getVarInt(index_0,index_n)
+        dtoNL_index.add(index)
+
+    return kstd.NORMAL_CODE
+
+def createBatchSample(dtoNL_index,dtoNT_source,dtoNT_batch):
+
+    NT_source = dtoNT_source.getVariable()
+
+    for index in dtoNL_index.getVariable():
+        dtoNT_batch.addNpArray(NT_source[index])
+
+    return kstd.NORMAL_CODE
+
 def resultSave(result_lists,file_path):
     csv_writer = kstd.CsvWriter()
     csv_writer.openFile(file_path)
@@ -331,6 +268,60 @@ def convValueToLabel(value_nplist):
                 label_nplist[vi] =  1
             else:
                 label_nplist[vi] =  0
+       
+
+def crateNLLabelFromValue(dto_data_set):
+
+    row_length = dto_data_set.dtoNT_value.getAttrRowLength()
+    col_length = dto_data_set.dtoNT_value.getAttrColLength()
+    NT_value   = dto_data_set.dtoNT_value.getVariable()
+
+    dtoNT_label = kstd.DtoNpTable(col_length)
+    for ri in range(row_length):
+
+        var_list = NT_value[ri]
+        var_max  = var_list.max()
+
+        dtoNL_label = kstd.DtoNpList()
+    
+        for ci in range(col_length):
+            if var_max == var_list[ci]:
+                label = 1
+            else:
+                label = 0
+
+            dtoNL_label.add(label)
+        dtoNT_label.addList(dtoNL_label)
+
+    dto_data_set.addLabelTable(dtoNT_label)
+
+    return kstd.NORMAL_CODE
+
+def matchRateOfLabel(dto_data_set_predict,dto_data_set_answer):
+
+    row_length = dto_data_set_predict.dtoNT_label.getAttrRowLength()
+    count_match = 0.0
+
+    NT_label_predicted = dto_data_set_predict.dtoNT_label.getVariable()
+    NT_label_answer    = dto_data_set_answer.dtoNT_label.getVariable()
+
+    for ri in range(row_length):
+        NL_label_predicted = NT_label_predicted[ri]
+        NL_label_answer    = NT_label_answer[ri]
+
+        res_compare = kstd.compareNpList(NL_label_predicted,NL_label_answer)
+        if res_compare:
+            count_match = count_match + 1.0
+
+    return count_match / size
+
+def matchRateOfDtoNpList(dto_np_list1,dto_np_list2):
+    np_list1 = dto_np_list1.getVariable()
+    np_list2 = dto_np_list2.getVariable()
+
+    return matchRateOfNpList(np_list1,np_list2)
+
+
 
 ############################################################################
 #
@@ -352,21 +343,23 @@ def pool_2x2(x,shape,stride,flag=FLAG_MAX_POOL):
     elif flag == FLAG_AVG_POOL:
         return avg_pool_2x2(x,shape,stride)
 
-def weight_variable(shape):
+def weightVariable(shape):
     initial = tf.truncated_normal(shape, stddev=0.1)
     return tf.Variable(initial)
 
-def bias_variable(shape):
+def biasVariable(shape):
     initial = tf.constant(0.1, shape=shape)
     return tf.Variable(initial)
 
-def cnnLearningExecuter(dto_data_set_1,dto_data_set_2,dto_hyper_param,dto_case_meta):
-    mode = MODE_LEARNING
-    cnnExecuter(mode,dto_data_set_1,dto_data_set_2,dto_hyper_param,dto_case_meta)
+def cnnLearningExecuter(dto_data_set_train,dto_hyper_param,dto_output_path):
+    mode         = MODE_LEARNING
+    dto_data_set = dto_data_set_train
+    cnnExecuter(mode,dto_data_set,dto_hyper_param,dto_output_path)
 
-def cnnPredictionExecuter(dto_data_set,dto_hyper_param,dto_case_meta):
-    mode = MODE_PREDICTION
-    cnnExecuter(mode,dto_data_set_1,dto_data_set_2,dto_hyper_param,dto_case_meta)
+def cnnPredictionExecuter(dto_data_set_predict,dto_hyper_param,dto_output_path):
+    mode         = MODE_PREDICTION
+    dto_data_set = dto_data_set_predict
+    cnnExecuter(mode,dto_data_set,dto_hyper_param,dto_output_path)
 
 def bondActivationFunc(x):
     return tf.nn.relu(x)
@@ -376,87 +369,130 @@ def convActivationFunc(x):
     return tf.nn.relu(x)
     #return tf.nn.sigmoid(x)
 
-def cnnExecuter(mode,dto_data_set_1,dto_data_set_2,dto_hyper_param,dto_case_meta):
+
+def initialSettingXY(dto_data_set):
+    x_size = dto_data_set.image_list_size
+    x      = tf.placeholder(tf.float32, shape=[ None , x_size ])
+    y_size = dto_data_set.num_of_label_kind
+    y_     = tf.placeholder(tf.float32, shape=[ None , y_size ])
+    
+    return x , y_
+
+def initialSettingXImage(dto_data_set,x):
+    image_wigth  = dto_data_set.wigth
+    image_height = dto_data_set.height
+    x_image      = tf.reshape(x, [-1, image_wigth, image_height, 1])
+
+    return x_image
+
+def initialSettingConvPara(dto_hyper_param):
+    x_first_value = ""
+    W_conv = [x_first_value] * dto_hyper_param.num_of_conv_layer
+    b_conv = [x_first_value] * dto_hyper_param.num_of_conv_layer
+    h_conv = [x_first_value] * dto_hyper_param.num_of_conv_layer
+    h_pool = [x_first_value] * dto_hyper_param.num_of_conv_layer
+
+    return W_conv,b_conv,h_conv,h_pool
+
+def initialSettingFilter(dto_hyper_param,layer_i):
+    filter_wigth  = dto_hyper_param.filter_wigth[layer_i]
+    filter_height = dto_hyper_param.filter_height[layer_i]
+    return filter_wigth,filter_height
+
+def initialSettingConv(dto_hyper_param,layer_i):
+    num_of_out_ch = dto_hyper_param.num_of_out_ch[layer_i]
+    stride_conv   = dto_hyper_param.stride_conv[layer_i]
+    return num_of_out_ch,stride_conv
+
+def initialSettingPool(dto_hyper_param,layer_i):
+    stride_pool   = dto_hyper_param.stride_pool[layer_i]
+    shape_pool    = dto_hyper_param.shape_pool[layer_i]
+    return stride_pool,shape_pool
+
+def initial_setting_batch_dto(dto_data_set):
+    x_size = dto_data_set.image_list_size
+    dtoNT_batch_x = kstd.DtoNpTable(x_size)
+    y_size = dto_data_set.num_of_label_kind
+    dtoNT_batch_y = kstd.DtoNpTable(y_size)
+
+def createBatchSampleList(dtoNL_index,dtoNT_source):
+    col_length  = dtoNT_source.getAttrColLength()
+    dtoNT_batch = kstd.DtoNpTable(col_length)
+    createBatchSample(dtoNL_index,dtoNT_source,dtoNT_batch)
+    return dtoNT_batch.getVariable()
+
+def histogram_to_TensorBoard(name,tf_gragh):
+    tf.summary.histogram(name, tf_gragh)
+
+def outputConvLayerParaToTensorBoard(W_conv,b_conv,h_conv,h_pool,li):
+
+    tf.summary.histogram('No%02d01_W_conv' % (li), W_conv[li])
+    tf.summary.histogram('No%02d02_b_conv' % (li), b_conv[li])
+    tf.summary.histogram('No%02d03_h_conv' % (li), h_conv[li])
+    tf.summary.histogram('No%02d04_h_pool' % (li), h_pool[li])
+
+def outputBondLayerParaToTensorBoard(W_bond,b_bond,h_bond,W_bond2,b_bond2):
+
+    tf.summary.histogram('No0101_W_bond', W_bond)
+    tf.summary.histogram('No0102_b_bond', b_bond)
+    tf.summary.histogram('No0103_h_bond', h_bond)
+    tf.summary.histogram('No0201_W_bond', W_bond2)
+    tf.summary.histogram('No0202_b_bond', b_bond2)
+
+
+def createUpdatedLearningRate(dto_hyper_param,lr_update_count):
+    lr_update_weight     = tf.subtract( 1.0 , tf.cast( tf.divide(lr_update_count,dto_hyper_param.learning_iteration), tf.float32 ) )
+    lr_update_base       = tf.subtract( dto_hyper_param.learning_rate_max , dto_hyper_param.learning_rate_min )
+    
+    d_lr                 = tf.multiply( lr_update_base , lr_update_weight ) 
+    learning_rate_new    = tf.add(dto_hyper_param.learning_rate_min , d_lr)
+    return learning_rate_new
+
+
+
+def cnnExecuter(mode,dto_data_set,dto_hyper_param,dto_output_path):
+
+
+    print_step = 1
 
     #####################################################
     # variables
     #####################################################
     
-    x_size = dto_data_set.image_list_size
-    x_1     = tf.placeholder(tf.float32, shape=[ None , x_size ])
-    x_2     = tf.placeholder(tf.float32, shape=[ None , x_size ])
-    y_size = dto_data_set.num_of_label_kind
-    y_     = tf.placeholder(tf.float32, shape=[ None , y_size ])
-    
-    image_wigth  = dto_data_set_1.wigth
-    image_height = dto_data_set_1.height
-    x_1_image    = tf.reshape(x_1, [-1, image_wigth, image_height, 1])
-
-    image_wigth  = dto_data_set_2.wigth
-    image_height = dto_data_set_2.height
-    x_2_image    = tf.reshape(x_2, [-1, image_wigth, image_height, 1])
-
-    # W = tf.Variable(tf.zeros([num_of_image_pixels, num_of_answer_kind]))
-    # b = tf.Variable(tf.zeros([NUM_OF_ANSWER_KIND]))
+    x , y_  = initialSettingXY(dto_data_set)
+    x_image = initialSettingXImage(dto_data_set,x)
 
     #####################################################
     # convolution layer
     #####################################################
     kstd.echoStart("convolution layer setting")
 
-    x_first_value = ""
-    W_conv_1 = [x_first_value] * dto_hyper_param.num_of_conv_layer
-    b_conv_1 = [x_first_value] * dto_hyper_param.num_of_conv_layer
-    h_conv_1 = [x_first_value] * dto_hyper_param.num_of_conv_layer
-    h_pool_1 = [x_first_value] * dto_hyper_param.num_of_conv_layer
-    
-    W_conv_2 = [x_first_value] * dto_hyper_param.num_of_conv_layer
-    b_conv_2 = [x_first_value] * dto_hyper_param.num_of_conv_layer
-    h_conv_2 = [x_first_value] * dto_hyper_param.num_of_conv_layer
-    h_pool_2 = [x_first_value] * dto_hyper_param.num_of_conv_layer
-
-
+    W_conv,b_conv,h_conv,h_pool = initialSettingConvPara(dto_hyper_param)
 
     with tf.name_scope('convolution_layer') as scope:
+
+        num_of_in_ch  = dto_hyper_param.num_of_in_ch
+
         for li in range(dto_hyper_param.num_of_conv_layer):
             process_name = "No." + str(li) + " layer convolution"
             kstd.echoStart(process_name)
 
-            filter_wigth  = dto_hyper_param.filter_wigth[li]
-            filter_height = dto_hyper_param.filter_height[li]
-            num_of_in_ch  = dto_hyper_param.num_of_in_ch
-            num_of_out_ch = dto_hyper_param.num_of_out_ch[li]
-            stride_conv   = dto_hyper_param.stride_conv[li]
-            stride_pool   = dto_hyper_param.stride_pool[li]
-            shape_pool    = dto_hyper_param.shape_pool[li]
+            filter_wigth  ,filter_height = initialSettingFilter(dto_hyper_param,li)
+            num_of_out_ch ,stride_conv   = initialSettingConv(dto_hyper_param,li)
+            stride_pool   ,shape_pool    = initialSettingPool(dto_hyper_param,li)
 
-            W_conv_1[li] = weight_variable([filter_wigth,filter_height, num_of_in_ch, num_of_out_ch])
-            b_conv_1[li] = bias_variable([num_of_out_ch])
-            h_conv_1[li] = convActivationFunc(conv2d(x_1_image, W_conv[li], stride_conv) + b_conv[li])
-            h_pool_1[li] = pool_2x2(h_conv[li], shape_pool, stride_pool, dto_hyper_param.flag_pool)
+            W_conv[li] = weightVariable([filter_wigth,filter_height, num_of_in_ch, num_of_out_ch])
+            b_conv[li] = biasVariable([num_of_out_ch])
+            h_conv[li] = convActivationFunc( conv2d(x_image, W_conv[li], stride_conv) + b_conv[li] )
+            h_pool[li] = pool_2x2(h_conv[li], shape_pool, stride_pool, dto_hyper_param.flag_pool)
 
-            x_1_image = h_pool[li]
-
-            W_conv_2[li] = weight_variable([filter_wigth,filter_height, num_of_in_ch, num_of_out_ch])
-            b_conv_2[li] = bias_variable([num_of_out_ch])
-            h_conv_2[li] = convActivationFunc(conv2d(x_2_image, W_conv[li], stride_conv) + b_conv[li])
-            h_pool_2[li] = pool_2x2(h_conv[li], shape_pool, stride_pool, dto_hyper_param.flag_pool)
-
-            x_2_image = h_pool[li]
-
-            dto_hyper_param.setNumOfInCh(num_of_out_ch)
+            x_image      = h_pool[li]
+            num_of_in_ch = num_of_out_ch
         
+            # output for tensorboard
+            outputConvLayerParaToTensorBoard(W_conv,b_conv,h_conv,h_pool,li)
+
             kstd.echoIsAlready(process_name)
-
-            tf.summary.histogram('No%02d0101_W_conv' % (li), W_conv_1[li])
-            tf.summary.histogram('No%02d0102_b_conv' % (li), b_conv_1[li])
-            tf.summary.histogram('No%02d0103_h_conv' % (li), h_conv_1[li])
-            tf.summary.histogram('No%02d0104_h_pool' % (li), h_pool_1[li])
-            tf.summary.histogram('No%02d0201_W_conv' % (li), W_conv_2[li])
-            tf.summary.histogram('No%02d0202_b_conv' % (li), b_conv_2[li])
-            tf.summary.histogram('No%02d0203_h_conv' % (li), h_conv_2[li])
-            tf.summary.histogram('No%02d0204_h_pool' % (li), h_pool_2[li])
-
 
     #####################################################
     # bonding layer
@@ -467,52 +503,43 @@ def cnnExecuter(mode,dto_data_set_1,dto_data_set_2,dto_hyper_param,dto_case_meta
         process_name = "bonding layer setting"
         kstd.echoStart(process_name)
 
-        num_wigth   = x_1_image.shape[AXIS_X_IMAGE_WIGTH]
-        num_height  = x_1_image.shape[AXIS_X_IMAGE_HEIGHT]
-        num_channel = x_1_image.shape[AXIS_X_IMAGE_CHANNEL]
-        num_channel = num_channel + x_2_image.shape[AXIS_X_IMAGE_CHANNEL]
+        num_wigth   = x_image.shape[AXIS_X_IMAGE_WIGTH]
+        num_height  = x_image.shape[AXIS_X_IMAGE_HEIGHT]
+        num_channel = x_image.shape[AXIS_X_IMAGE_CHANNEL]
 
         total_image_pixels = int(num_wigth * num_height * num_channel)
 
-        W_bond       = weight_variable([total_image_pixels, dto_hyper_param.num_of_hidden_layer])
-        b_bond       = bias_variable([dto_hyper_param.num_of_hidden_layer])
-        
-        x_1_image_flat = tf.reshape(x_1_image, [-1, total_image_pixels])
-        x_2_image_flat = tf.reshape(x_2_image, [-1, total_image_pixels])
-        x_image_flat   = x_1_image_flat
-        x_image_flat   = np.insert(x_image_flat,0,x_2_image_flat,axis = 0)
+        num_of_hidden_layer = dto_hyper_param.num_of_hidden_layer
 
-        h_bond         = bondActivationFunc(tf.matmul(x_image_flat, W_bond) + b_bond)
+        W_bond       = weightVariable([total_image_pixels, num_of_hidden_layer])
+        b_bond       = biasVariable([num_of_hidden_layer])
+        
+        x_image_flat = tf.reshape(x_image, [-1, total_image_pixels])
+        h_bond       = bondActivationFunc(tf.matmul(x_image_flat, W_bond) + b_bond)
         
         keep_prob    = tf.placeholder(tf.float32)
         h_bond_drop  = tf.nn.dropout(h_bond, keep_prob)
 
-        W_bond2 = weight_variable([dto_hyper_param.num_of_hidden_layer,dto_data_set.num_of_label_kind])
-        b_bond2 = bias_variable([dto_data_set.num_of_label_kind])
+        W_bond2 = weightVariable([num_of_hidden_layer,dto_data_set.num_of_label_kind])
+        b_bond2 = biasVariable([dto_data_set.num_of_label_kind])
 
         y_cnn = tf.matmul(h_bond_drop, W_bond2) + b_bond2
 
+        # output for tensorboard
+
+        outputBondLayerParaToTensorBoard(W_bond,b_bond,h_bond,W_bond2,b_bond2)
+
         kstd.echoIsAlready(process_name)
 
-        tf.summary.histogram('No%02d01_W_bond' % (11), W_bond)
-        tf.summary.histogram('No%02d02_b_bond' % (11), b_bond)
-        tf.summary.histogram('No%02d03_h_bond' % (11), h_bond)
-        tf.summary.histogram('No%02d01_W_bond' % (12), W_bond2)
-        tf.summary.histogram('No%02d02_b_bond' % (12), b_bond2)
-    
 
     #***************************************************
     # defining : learing rate 
     #***************************************************
     with tf.name_scope('learning_rate_updater') as scope:
         lr_update_count      = tf.placeholder(tf.int32)
-        lr_update_weight     = tf.subtract( 1.0 , tf.cast( tf.divide(lr_update_count,dto_hyper_param.learning_iteration), tf.float32 ) )
-        lr_update_base       = tf.subtract( dto_hyper_param.learning_rate_max , dto_hyper_param.learning_rate_min )
-        
-        d_lr                 =  tf.multiply( lr_update_base , lr_update_weight ) 
-        
         learning_rate        = tf.Variable(tf.constant(dto_hyper_param.learning_rate_max))
-        learning_rate_new    = tf.add(dto_hyper_param.learning_rate_min , d_lr)
+
+        learning_rate_new    = createUpdatedLearningRate(dto_hyper_param,lr_update_count)
         learning_rate_update = tf.assign(learning_rate , learning_rate_new )
         
         tf.summary.scalar("learning_rate" , learning_rate)
@@ -545,81 +572,280 @@ def cnnExecuter(mode,dto_data_set_1,dto_data_set_2,dto_hyper_param,dto_case_meta
 
         sess.run(tf.global_variables_initializer())
 
+        #***********************************************
         # learning
         if( mode == MODE_LEARNING ):
 
             summary_merged = tf.summary.merge_all()
-            summary_writer = tf.summary.FileWriter(dto_case_meta.summary_dir_path , sess.graph)
+            summary_writer = tf.summary.FileWriter(dto_output_path.summary_dir_path , sess.graph)
 
             iteration = dto_hyper_param.learning_iteration
             for ii in range(iteration):
                 batch_size     = dto_hyper_param.batch_size
                 
-                batch_x , batch_y  = dto_data_set.getBatchSample(batch_size)
+                dtoNL_index  = kstd.DtoNpList("int64")
+                dtoNT_source = dto_data_set.dtoNT_flat_image
+                createRandomIndexList(dtoNL_index,dtoNT_source,batch_size)
+
+                batch_x = createBatchSampleList(dtoNL_index,dto_data_set.dtoNT_flat_image)
+                batch_y = createBatchSampleList(dtoNL_index,dto_data_set.dtoNT_label)
 
                 train_step.run(feed_dict={x: batch_x, y_: batch_y, keep_prob: dto_hyper_param.keep_rate})
+                sess.run(learning_rate_update , feed_dict={lr_update_count:ii} )
 
                 train_accuracy = accuracy.eval(feed_dict={ x: batch_x, y_: batch_y, keep_prob: 1.0})
                 train_entropy  = cross_entropy.eval(feed_dict={x: batch_x, y_: batch_y, keep_prob: dto_hyper_param.keep_rate})
 
-                sess.run(learning_rate_update , feed_dict={lr_update_count:ii} )
+                if (ii + 1 ) % print_step == 0:
+                    elapsed_time_1 = kstd.getElapsedTime(bef_time,"s")
+                    elapsed_time_n = kstd.getElapsedTime(base_time,"m")
+                    bef_time = kstd.getTime()  
 
-                elapsed_time_1 = kstd.getElapsedTime(bef_time,"s")
-                elapsed_time_n = kstd.getElapsedTime(base_time,"m")
-                bef_time = kstd.getTime()  
-
-                print('step %4d/%d,\taccuracy %0.2g,\tentropy %0.2g \t(%ds/%dm) '
-                       % (ii + 1, iteration ,train_accuracy,train_entropy,elapsed_time_1,elapsed_time_n))
+                    print('step %4d/%d,\taccuracy %0.2g,\tentropy %0.2g \t(%ds/%dm) '
+                           % (ii + 1, iteration ,train_accuracy,train_entropy,elapsed_time_1,elapsed_time_n))
 
                 summary = sess.run(summary_merged , feed_dict={x: batch_x, y_: batch_y, keep_prob: 1.0, lr_update_count:ii} )
                 summary_writer.add_summary(summary , ii)
 
             kstd.echoBlanks(2)
             #y_predicted = y_cnn.eval(feed_dict={x: test_x, keep_prob: 1.0} )
-            #resultSave(y_predicted,dto_case_meta.predicted_value_file_path)
+            #resultSave(y_predicted,dto_output_path.predicted_value_file_path)
 
             saver = tf.train.Saver()
-            saver.save(sess, dto_case_meta.learned_parameter_file_path)
+            saver.save(sess, dto_output_path.learned_parameter_file_path)
 
+        #***********************************************
         # Prediction
         elif( mode == MODE_PREDICTION ):
             saver = tf.train.Saver()
-            saver.restore(sess, dto_case_meta.learned_parameter_file_path)
+            saver.restore(sess, dto_output_path.learned_parameter_file_path)
 
-            test_x = dto_data_set.t_flat_image_nplists
-            y_predicted = y_cnn.eval(feed_dict={x: test_x, keep_prob: 1.0} )
-            dto_data_set.addTestValueList(y_predicted)
-            resultSave(y_predicted,dto_case_meta.predicted_value_file_path)
+            test_x = dto_data_set.dtoNT_flat_image.getVariable()
+            test_y = y_cnn.eval(feed_dict={x: test_x, keep_prob: 1.0} )
+            
+
+            dtoNT_y = kstd.DtoNpTable(dto_data_set.num_of_label_kind)
+            dtoNT_y.addNpArray(test_y)
+            dto_data_set.addValueTable(dtoNT_y)
+            resultSave(test_y,dto_output_path.predicted_value_file_path)
+
+        sess.close()
 
     kstd.echoBlanks(2)
     kstd.echoIsAlready(process_name)
 
+
+########################################################################
+########################################################################
+########################################################################
+########################################################################
+########################################################################
+
+
+
+
+
 if __name__ == "__main__":
 
-    echoHyperParameterSetting()
+    #######################################################
+    # hyper parameter settings
+    #######################################################
+
+    process_name = "hyper parameter setting"
+    kstd.echoStart(process_name)
+
+    msg_length = 25
 
     dto_hyper_param = DtoHyperParameterForTFCNN()
+
+    # num_of_conv_layer
+    exit_code = dto_hyper_param.setNumOfConvLayer(prop.num_of_conv_layer)
+    kstd.judgeError(exit_code)
+    kstd.echoIsSetting(kstd_m.messPaddingMessage("num_of_conv_layer",msg_length),str(dto_hyper_param.num_of_conv_layer) )
+
+    # num_of_hidden_layer    
+    exit_code = dto_hyper_param.setNumOfHiddenLayer(prop.num_of_hidden_layer)
+    kstd.judgeError(exit_code)
+    kstd.echoIsSetting(kstd_m.messPaddingMessage("num_of_hidden_layer",msg_length),str(dto_hyper_param.num_of_hidden_layer) )
     
-    dto_hyper_param.addFilterWigth(2)
-    dto_hyper_param.addFilterHeight(2)
-    dto_hyper_param.addNumOfOutCh(2)
-
-    dto_hyper_param.addFilterWigth(3)
-    dto_hyper_param.addFilterHeight(3)
-    dto_hyper_param.addNumOfOutCh(3)
-
-    dto_data_set = DtoDataSetForTFCNN()
-
-
-
-    is_preparation_OK = dto_data_set.varCheck() * dto_hyper_param.varCheck()
+    # keep_rate
+    exit_code = dto_hyper_param.setKeepRate(prop.keep_rate)
+    kstd.judgeError(exit_code)
+    kstd.echoIsSetting(kstd_m.messPaddingMessage("keep_rate",msg_length),str(dto_hyper_param.keep_rate) )
     
-    if(is_preparation_OK):
-        print("cnn start")
-        cnnExecuter(dto_data_set,dto_hyper_param)
+    # learning_rate
+    exit_code = dto_hyper_param.setLearningRate(prop.learning_rate_min,prop.learning_rate_max)
+    kstd.judgeError(exit_code)
+    kstd.echoIsSetting(kstd_m.messPaddingMessage("learning_rate_min",msg_length),str(dto_hyper_param.learning_rate_min))
+    kstd.echoIsSetting(kstd_m.messPaddingMessage("learning_rate_max",msg_length),str(dto_hyper_param.learning_rate_max))
+    
+    # learning_iter
+    exit_code = dto_hyper_param.setLearningIteration(prop.learning_iteration)
+    kstd.judgeError(exit_code)
+    kstd.echoIsSetting(kstd_m.messPaddingMessage("learning_iter",msg_length),str(dto_hyper_param.learning_iteration))
+    
+    # batch_size
+    exit_code = dto_hyper_param.setBatchSize(prop.batch_size)
+    kstd.judgeError(exit_code)
+    kstd.echoIsSetting(kstd_m.messPaddingMessage("batch_size",msg_length),str(dto_hyper_param.batch_size))
+    
+    # conv and pooling filter parameter
+    for conv_layer_number in range(prop.num_of_conv_layer):
+        dto_hyper_param.addFilterWigth(prop.filter_wigth[conv_layer_number])
+        dto_hyper_param.addFilterHeight(prop.filter_height[conv_layer_number])
+        dto_hyper_param.addNumOfOutCh(prop.num_of_out_ch[conv_layer_number])
+        dto_hyper_param.addStrideConv(prop.stride_conv[conv_layer_number])
+        dto_hyper_param.addStridePool(prop.stride_pool[conv_layer_number])
+        dto_hyper_param.addShapePool(prop.shape_pool[conv_layer_number])
 
-    else:
-        print("NG")
+    if not dto_hyper_param.varCheck() == kstd.NORMAL_CODE:
+        kstd.echoErrorOccured("hyper para check")
+        kstd.exit()
+
+
+
+    dto_output_path = DtoOutputPathForTFCNN()
+
+    case = 0
+    file_path = fi.filePath(case)
+
+    path = file_path.learned_param
+    dto_output_path.setLearnedParameterFilePath(path)
+
+    path = file_path.predicted_value
+    dto_output_path.setPredictedValueFilePath(path)    
+
+    path = file_path.output_dir
+    dto_output_path.setSummaryDirPath(path)
+
+
+    #######################################################
+    # each data settings
+    #######################################################
+
+    from tensorflow.examples.tutorials.mnist import input_data
+    mnist = tf.keras.datasets.mnist
+    (x_train, y_train),(x_test, y_test) = mnist.load_data()
+    kstd.echoBar()
+    kstd.echoBlank()
+    print("data attr")
+    kstd.echoBlank()
+    print(type(x_train)) # numpy.ndarray
+    print(type(y_train)) # numpy.ndarray
+    print(type(x_test))  # numpy.ndarray
+    print(type(y_test))  # numpy.ndarray
+    print(x_train.shape) # (60000,28,28)
+    print(y_train.shape) # (60000,)
+    print(x_test.shape)  # (10000,28,28)
+    print(y_test.shape)  # (10000,)
+    print(np.max(x_train)) # 255
+    print(np.min(x_train)) # 0
+    print(np.max(y_train)) # 9
+    print(np.min(y_train)) # 0
+    kstd.echoBlank()
+    kstd.echoBar()
+
+    wight_x  = 28
+    height_x = 28
+    num_y    = 10
+    dto_data_set_train   = DtoDataSetForTFCNN(wight_x,height_x,num_y)
+    dto_data_set_predict = DtoDataSetForTFCNN(wight_x,height_x,num_y)
+    dto_data_set_answer  = DtoDataSetForTFCNN(wight_x,height_x,num_y)
+
+
+    data_size = 1000 * 1
+
+    # setting x_train to data_set
+    target_data = x_train
+    x_train = []
+    dto_np_table = kstd.DtoNpTable(wight_x * height_x)
+    count = 0
+    for di in range(data_size):
+        xi = target_data[di]
+        x_tmp = xi.flatten()
+        x_tmp = kstd.npNomalizaiton(x_tmp)
+        dto_np_table.addNpArray(x_tmp)
+        count = count + 1
+        if count % 1000 == 0:
+            print("setting x_train : %05d" % count)
+        # kstd.exit()
+    print(dto_np_table.getAttrRowLength())
+
+    dto_data_set_train.addFlatImageTable(dto_np_table)
+
+
+    # setting x_test to data_set
+    target_data = x_test
+    x_test = []
+    dto_np_table = kstd.DtoNpTable(wight_x * height_x)
+    count = 0
+    for di in range(data_size):
+        xi = target_data[di]
+        x_tmp = xi.flatten()
+        x_tmp = kstd.npNomalizaiton(x_tmp)
+        dto_np_table.addNpArray(x_tmp)
+        count = count + 1
+        if count % 1000 == 0:
+            print("setting x_test  : %05d" % count)
+        # kstd.exit()
+    print(dto_np_table.getAttrRowLength())
+    dto_data_set_predict.addFlatImageTable(dto_np_table)
+    dto_data_set_answer.addFlatImageTable(dto_np_table)
+
+    # setting y_train to data_set
+    target_data = y_train
+    y_train = []
+    dto_np_table = kstd.DtoNpTable(num_y)
+    count = 0
+    for di in range(data_size):
+        yi = target_data[di]
+        dto_np_list = kstd.DtoNpList()
+        kstd.createStaticLabelList(dto_np_list,num_y,yi)
+        dto_np_table.addList(dto_np_list)
+        count = count + 1
+        if count % 1000 == 0:
+            print("setting y_train : %05d" % count)
+        # kstd.exit()
+    print(dto_np_table.getAttrRowLength())
+    dto_data_set_train.addLabelTable(dto_np_table)
+
+    # setting y_test to data_set
+    target_data = y_test
+    y_test = []
+    dto_np_table = kstd.DtoNpTable(num_y)
+    count = 0
+    for di in range(data_size):
+        yi = target_data[di]
+        dto_np_list = kstd.DtoNpList()
+        kstd.createStaticLabelList(dto_np_list,num_y,yi)
+        dto_np_table.addList(dto_np_list)
+        count = count + 1
+        if count % 1000 == 0:
+            print("setting y_train : %05d" % count)
+        # kstd.exit()
+    print(dto_np_table.getAttrRowLength())
+    dto_data_set_answer.addLabelTable(dto_np_table)
+
+    process = "cnn estimate"
+    kstd.echoStart(process)
+
+
+    
+
+
+
+
+
+    cnnLearningExecuter(dto_data_set_train,dto_hyper_param,dto_output_path)
+    #cnnPredictionExecuter(dto_data_set_predict,dto_hyper_param,dto_output_path)
+
+    #dtoNT_predict = dto_data_set_train.dtoNT_label
+    #/dtoNT_answer  = dto_data_set_answer.dtoNT_label
+    #matching_rate = kstd.matchRateOfDtoNpList(dtoNT_predict,dtoNT_answer)
+
+    #print(matching_rate)
+
+
 
 
 

@@ -1,89 +1,111 @@
+###############################################################
+#
+# version
+#  1.0 2018/11/01
+#
+###############################################################
+
 from PIL import Image
 import numpy as np
 import kayaru_standard_process as kstd
 import os
+import glob
 
-def convGrayImage2NpList(image_file_path):
+class DataImage():
+    def __init__(self,image_path):
+        self.image_path = ""
 
-    if not os.path.exists(image_file_path):
-        kstd.echoNotExistThatFile(image_file_path)
+        if kstd.checkPathExist(image_path) == kstd.NORMAL_CODE:
+            self.image_path = image_path
+            self.image      = Image.open(image_path)
 
-    gray_image = np.array(Image.open(image_file_path).convert('L'))
 
-    return gray_image
-
-def convImageNpList2d2Flat(image_nplist):
-    flat_image_nplist = image_nplist.flatten()
-
-    return flat_image_nplist   
-
-def checkImageSize(height,wigth,flat_image_nplist):
-    base_length  = height * wigth
-    given_length = flat_image_nplist.shape[1]
-
-    if base_length == given_length:
+    def isImageOpend(self):
+        if self.image_path == "":
+            return False
         return True
-    else:
-        return False
 
-def getHeightFromImage(image_file_path):
-    if kstd.isNull(image_file_path):
-        kstd.echoNullOfAValue(image_file_path,locals())
-        return 0
-    if not os.path.exists(image_file_path):
-        kstd.echoNotExistThatFile(image_file_path)
-        return 0
-    im = Image.open(image_file_path)
-    w, h = im.size
-    return h
-
-def getWightFromImage(image_file_path):
-    if kstd.isNull(image_file_path):
-        kstd.echoNullOfAValue(image_file_path,locals())
-        return 0
-    if not os.path.exists(image_file_path):
-        kstd.echoNotExistThatFile(image_file_path)
-        return 0
-    im   = Image.open(image_file_path)
-    w, h = im.size
-    return w
-
-class DtoFlatImageDataNplistForTf():
-    def __init__(self):
-        self.height               = 0
-        self.wigth                = 0
-        self.list_size            = 0
-
-    def firstlization(self,height,wigth):
-        self.height               = height
-        self.wigth                = wigth
-        self.list_size            = self.wigth * self.height
-        self.flat_image_data_list = np.empty((0,self.list_size))
-        self.list_tmp             = np.zeros((1,self.list_size))
-        
-    def addList(self,flat_image_nplist):
-        if not kstd.compareType(self.flat_image_data_list,flat_image_nplist):
-            print("wrong image list!!!!!")
-            return kstd.ERROR_CODE
-
-        if not checkImageSize(self.height,self.wigth,flat_image_nplist):
-            print("not same image size!!!!!!")
-            if( self.list_size == 0 ):
-                print("not firstlization height or wigth")
-            return kstd.ERROR_CODE
-
-        self.list_tmp[0]          = flat_image_nplist
-        self.flat_image_data_list = np.append(self.flat_image_data_list,self.list_tmp,axis = 0)
+    def getRawImage(self,dtoNT_image):
+        dtoNT_image.addNpArray(np.array(self.image))
         return kstd.NORMAL_CODE
 
-    def clearList(self):
-        self.flat_image_data_list = np.empty((0,self.list_size))
+    def getGrayConvertedImage(self,dtoNT_gray_image):
+        dtoNT_gray_image.addNpArray(np.array(self.image.convert('L')))
+        return kstd.NORMAL_CODE
 
-    def valCheck(self):
-        kstd.echoBlank()
-        print("image height : " + str(self.height) ) 
-        print("image wigth  : " + str(self.wigth) ) 
+    def getFlatList(self,dtoNL_flatten_image):
+        dtoNL_flatten_image.add(np.array(self.image).flatten())
+        return kstd.NORMAL_CODE
 
-    def getList(self):
-        return self.flat_image_data_list
-       
+
+    def getShape(self):
+        return np.array(self.image).shape
+
+    def getFlatShape(self):
+        return np.array(self.image).flatten().shape
+
+    def getHeight(self):
+        wigth, height = self.image.size
+        return height
+
+    def getWigth(self):
+        wigth, height = self.image.size
+        return wigth
+
+
+
+
+
+
+    def checkImageOpend(self):
+        if self.image_path == "":
+            return kstd.ERROR_CODE
+        return kstd.NORMAL_CODE 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+##############################################################################
+##############################################################################
+##############################################################################
+
+def getImageListsInTargetDir(dir_path,dto_np_table_flat_image):
+
+
+    image_path_list = glob.glob( dir_path + '\\*') 
+    exit_code = kstd.checkDirExist(dir_path)
+
+
+    if not dto_flat_image_lists.isInitialized():
+        image_path = image_path_list[0]
+        image_data = DataImage(image_path)
+        dto_flat_image_lists.initialize(image_data.getHeight(),image_data.getWigth())
+
+    for image_path in image_path_list:
+        image_data = DataImage(image_path)
+        exit_code  = max(exit_code , dto_flat_image_lists.addList(image_data.getFlatList()))
+
+    return exit_code
+
