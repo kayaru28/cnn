@@ -120,7 +120,7 @@ def cpCheck(file_path,copied_dir_path):
 
     file_name     = ntpath.basename(file_path)
     file_path_new = joinDirPathAndName(copied_dir_path,file_name) 
-    exit_code = checkFileExist(file_path_new)
+    exit_code = checkPathExist(file_path_new)
     if exit_code == NORMAL_CODE:
         return EC_FILE_EXIST
 
@@ -135,9 +135,9 @@ def cpCheck(file_path,copied_dir_path):
     return NORMAL_CODE
 
 def cp(file_path,copied_dir_path):
-    exit_code = cp_check(file_path,copied_dir_path)
+    exit_code = cpCheck(file_path,copied_dir_path)
     if exit_code == NORMAL_CODE:
-        cp_exec(file_path,copied_dir_path)
+        cpExec(file_path,copied_dir_path)
     return NORMAL_CODE
 
 

@@ -1,4 +1,25 @@
+import numpy as np
 
+class MessQueue():
+
+    _error_mess = "no more message"
+
+    def __init__(self):
+        self._count_in  = 0
+        self._count_out = 0
+        self._queue     = np.array([]) 
+
+    def setMess(self,mess):
+        self._queue    = np.append(self._queue,mess)
+        self._count_in = self._count_in + 1
+
+    def getMess(self):
+        if self._count_in > self._count_out:
+            index_out       = self._count_out
+            self._count_out = self._count_out + 1
+            return self._queue[index_out]
+        else:
+            return _error_mess
 
 def messDoesNotExist(name):
     message = "%s does not exit" % ( name )

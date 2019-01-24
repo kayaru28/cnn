@@ -26,7 +26,8 @@ FLAG_AVG_POOL = "average_pool"
 class DtoOutputPathForTFCNN():
     def __init__(self):
         self.learned_parameter_file_path = kstd.joinDirPathAndName(kstd.getScriptDir(),"_param.ckpt")
-        self.predicted_value_file_path   = kstd.joinDirPathAndName(kstd.getScriptDir(),"_label.csv")
+        self.predicted_value_file_path   = kstd.joinDirPathAndName(kstd.getScriptDir(),"_value.csv")
+        self.predicted_label_file_path   = kstd.joinDirPathAndName(kstd.getScriptDir(),"_label.csv")
         self.summary_dir_path            = kstd.getScriptDir()
 
     def setLearnedParameterFilePath(self,file_path):
@@ -55,7 +56,7 @@ class DtoDataSetForTFCNN():
     def firstlizationLabel(self,num_of_label_kind):
         self.num_of_label_kind      = num_of_label_kind
         self.dtoNT_label            = kstd.DtoNpTable(self.num_of_label_kind)
-        self.dtoNT_label_base_value = kstd.DtoNpTable(self.num_of_label_kind)
+        self.dtoNT_value = kstd.DtoNpTable(self.num_of_label_kind)
 
     def clearFlatImageTable(self):
         self.dtoNT_flat_image.clear()
@@ -84,7 +85,7 @@ class DtoDataSetForTFCNN():
         return exit_code
 
     def addValueTable(self,dtoNT_value):
-        exit_code = self._addTable(self.dtoNT_label_base_value,dtoNT_value,"value_list")
+        exit_code = self._addTable(self.dtoNT_value,dtoNT_value,"value_list")
         return exit_code
 
 class DtoHyperParameterForTFCNN():
@@ -453,7 +454,7 @@ def createUpdatedLearningRate(dto_hyper_param,lr_update_count):
 def cnnExecuter(mode,dto_data_set,dto_hyper_param,dto_output_path):
 
 
-    print_step = 1
+    print_step = 5
 
     #####################################################
     # variables
@@ -604,8 +605,8 @@ def cnnExecuter(mode,dto_data_set,dto_hyper_param,dto_output_path):
                     print('step %4d/%d,\taccuracy %0.2g,\tentropy %0.2g \t(%ds/%dm) '
                            % (ii + 1, iteration ,train_accuracy,train_entropy,elapsed_time_1,elapsed_time_n))
 
-                summary = sess.run(summary_merged , feed_dict={x: batch_x, y_: batch_y, keep_prob: 1.0, lr_update_count:ii} )
-                summary_writer.add_summary(summary , ii)
+                    summary = sess.run(summary_merged , feed_dict={x: batch_x, y_: batch_y, keep_prob: 1.0, lr_update_count:ii} )
+                    summary_writer.add_summary(summary , ii)
 
             kstd.echoBlanks(2)
             #y_predicted = y_cnn.eval(feed_dict={x: test_x, keep_prob: 1.0} )
