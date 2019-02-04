@@ -1,13 +1,9 @@
 #coding: UTF-8
 
 import kayaru_standard_process as kstd
-import kayaru_standard_process_for_image as image
 import kayaru_standard_process_for_randomize as rand
-import kayaru_standard_process_for_error_handling as error_handler
 import kayaru_standard_messages as kstd_m
 import numpy as np
-import properties_for_cnn as prop
-import file_interfase_for_cnn as fi
 import sys
 
 import tensorflow as tf
@@ -17,10 +13,6 @@ AXIS_X_IMAGE_WIGTH   = 1
 AXIS_X_IMAGE_HEIGHT  = 2
 AXIS_X_IMAGE_CHANNEL = 3
 
-PRINT_STEP = prop.PRINT_STEP
-PARA_SAVE  = prop.PARA_SAVE
-
-        
 MODE_LEARNING    = "Learning"
 MODE_RE_LEARNING = "re-Learning"
 MODE_PREDICTION  = "Prediction"
@@ -32,15 +24,22 @@ FLAG_AVG_POOL = "average_pool"
 class DtoOutputPathForTFCNN():
     def __init__(self):
         self.learned_parameter_file_path = kstd.joinDirPathAndName(kstd.getScriptDir(),"_param.ckpt")
+        self.learning_log_file_path      = kstd.joinDirPathAndName(kstd.getScriptDir(),"log.txt")
         self.predicted_value_file_path   = kstd.joinDirPathAndName(kstd.getScriptDir(),"_value.csv")
         self.predicted_label_file_path   = kstd.joinDirPathAndName(kstd.getScriptDir(),"_label.csv")
         self.summary_dir_path            = kstd.getScriptDir()
 
     def setLearnedParameterFilePath(self,file_path):
         self.learned_parameter_file_path = file_path
-        
+    
+    def setLearningLogFilePath(self,file_path):
+        self.learning_log_file_path = file_path
+
     def setPredictedValueFilePath(self,file_path):
         self.predicted_value_file_path   = file_path
+
+    def setPredictedLabelFilePath(self,file_path):
+        self.predicted_label_file_path   = file_path
 
     def setSummaryDirPath(self,dir_path):
         self.summary_dir_path            = dir_path
@@ -95,11 +94,15 @@ class DtoDataSetForTFCNN():
         return exit_code
 
 class DtoHyperParameterForTFCNN():
+
+
     def __init__(self):
-        self.NUM_OF_IN_CH_1      = 1
+    
+        NUM_OF_IN_CH_1      = 1
+
         self.keep_rate           = 1.0
         self.num_of_conv_layer   = 0
-        self.num_of_in_ch        = self.NUM_OF_IN_CH_1
+        self.num_of_in_ch        = NUM_OF_IN_CH_1
         self.num_of_out_ch       = []
         self.filter_wigth        = []   
         self.filter_height       = [] 
@@ -112,6 +115,9 @@ class DtoHyperParameterForTFCNN():
         self.learning_iteration  = 0
         self.batch_size          = 0
         self.flag_pool           = FLAG_MAX_POOL
+        
+        self.step_log_output     = 5
+        self.step_para_output    = 10
         
     def setKeepRate(self,keep_rate):
         self.keep_rate = keep_rate
@@ -155,6 +161,12 @@ class DtoHyperParameterForTFCNN():
         else:
             self.flag_pool = FLAG_MAX_POOL
             return kstd.ERROR_CODE
+
+    def setStepLogOutput(self,step):
+        self.step_log_output = step
+
+    def setStepParaOutput(self,step):
+        self.step_para_output = step
 
     def addFilterWigth(self,var):
         self.filter_wigth.append(var)
@@ -209,6 +221,10 @@ class DtoHyperParameterForTFCNN():
         elif not self.learning_iteration > 0:
             return kstd.ERROR_CODE
         elif not self.batch_size > 0:
+            return kstd.ERROR_CODE
+        elif not self.step_log_output > 0:
+            return kstd.ERROR_CODE
+        elif not self.step_para_output > 0:
             return kstd.ERROR_CODE
 
         return kstd.NORMAL_CODE
@@ -624,7 +640,7 @@ def cnnExecuter(mode,dto_data_set,dto_hyper_param,dto_output_path):
                 train_step.run(feed_dict={x: batch_x, y_: batch_y, keep_prob: dto_hyper_param.keep_rate})
                 sess.run(learning_rate_update , feed_dict={lr_update_count:ii} )
 
-                if (ii + 1 ) % PRINT_STEP == 0:
+                if (ii + 1 ) % dto_hyper_param.step_log_output == 0:
                     elapsed_time_1 = kstd.getElapsedTime(bef_time,"s")
                     elapsed_time_n = kstd.getElapsedTime(base_time,"m")
                     bef_time = kstd.getTime()  
@@ -635,10 +651,14 @@ def cnnExecuter(mode,dto_data_set,dto_hyper_param,dto_output_path):
                     print('step %4d/%d,\taccuracy %0.2g,\tentropy %0.2g \t(%ds/%dm) '
                            % (ii + 1, iteration ,train_accuracy,train_entropy,elapsed_time_1,elapsed_time_n))
 
+                    message = ('step,%4d/%d,\taccuracy,%0.2g,\tentropy,%0.2g,(%ds/%dm)'
+                           % (ii + 1, iteration ,train_accuracy,train_entropy,elapsed_time_1,elapsed_time_n))
+                    kstd.writeAddCsvDataVal(dto_output_path.learning_log_file_path,message)
+
                     summary = sess.run(summary_merged , feed_dict={x: batch_x, y_: batch_y, keep_prob: 1.0, lr_update_count:ii} )
                     summary_writer.add_summary(summary , ii)
 
-                    if (ii + 1 ) % PARA_SAVE == 0:
+                    if (ii + 1 ) % dto_hyper_param.step_para_output == 0:
                         saver = tf.train.Saver()
                         saver.save(sess, dto_output_path.learned_parameter_file_path)
 
@@ -652,242 +672,17 @@ def cnnExecuter(mode,dto_data_set,dto_hyper_param,dto_output_path):
             saver = tf.train.Saver()
             saver.restore(sess, dto_output_path.learned_parameter_file_path)
 
-            test_x = dto_data_set.dtoNT_flat_image.getVariable()
-            test_y = y_cnn.eval(feed_dict={x: test_x, keep_prob: 1.0} )
+            x_target    = dto_data_set.dtoNT_flat_image.getVariable()
+            y_predicted = y_cnn.eval(feed_dict={x: x_target, keep_prob: 1.0} )
             
-
-            dtoNT_y = kstd.DtoNpTable(dto_data_set.num_of_label_kind)
-            dtoNT_y.addNpArray(test_y)
-            dto_data_set.addValueTable(dtoNT_y)
-            resultSave(test_y,dto_output_path.predicted_value_file_path)
+            dtoNT = kstd.DtoNpTable(dto_data_set.num_of_label_kind)
+            dtoNT.addNpArray(y_predicted)
+            dto_data_set.addValueTable(dtoNT)
+            resultSave(y_predicted,dto_output_path.predicted_value_file_path)
 
         sess.close()
 
-    kstd.echoBlanks(2)
+        kstd.echoBlanks(2)
     kstd.echoIsAlready(process_name)
-
-
-########################################################################
-########################################################################
-########################################################################
-########################################################################
-########################################################################
-
-
-
-
-
-if __name__ == "__main__":
-
-    argvs = sys.argv  # コマンドライン引数を格納したリストの取得
-    argc = len(argvs) # 引数の個数
-
-    if argc > 1:
-
-
-        #######################################################
-        # hyper parameter settings
-        #######################################################
-
-        process_name = "hyper parameter setting"
-        kstd.echoStart(process_name)
-
-        msg_length = 25
-
-        dto_hyper_param = DtoHyperParameterForTFCNN()
-
-        # num_of_conv_layer
-        exit_code = dto_hyper_param.setNumOfConvLayer(prop.num_of_conv_layer)
-        kstd.judgeError(exit_code)
-        kstd.echoIsSetting(kstd_m.messPaddingMessage("num_of_conv_layer",msg_length),str(dto_hyper_param.num_of_conv_layer) )
-
-        # num_of_hidden_layer    
-        exit_code = dto_hyper_param.setNumOfHiddenLayer(prop.num_of_hidden_layer)
-        kstd.judgeError(exit_code)
-        kstd.echoIsSetting(kstd_m.messPaddingMessage("num_of_hidden_layer",msg_length),str(dto_hyper_param.num_of_hidden_layer) )
-        
-        # keep_rate
-        exit_code = dto_hyper_param.setKeepRate(prop.keep_rate)
-        kstd.judgeError(exit_code)
-        kstd.echoIsSetting(kstd_m.messPaddingMessage("keep_rate",msg_length),str(dto_hyper_param.keep_rate) )
-        
-        # learning_rate
-        exit_code = dto_hyper_param.setLearningRate(prop.learning_rate_min,prop.learning_rate_max)
-        kstd.judgeError(exit_code)
-        kstd.echoIsSetting(kstd_m.messPaddingMessage("learning_rate_min",msg_length),str(dto_hyper_param.learning_rate_min))
-        kstd.echoIsSetting(kstd_m.messPaddingMessage("learning_rate_max",msg_length),str(dto_hyper_param.learning_rate_max))
-        
-        # learning_iter
-        exit_code = dto_hyper_param.setLearningIteration(prop.learning_iteration)
-        kstd.judgeError(exit_code)
-        kstd.echoIsSetting(kstd_m.messPaddingMessage("learning_iter",msg_length),str(dto_hyper_param.learning_iteration))
-        
-        # batch_size
-        exit_code = dto_hyper_param.setBatchSize(prop.batch_size)
-        kstd.judgeError(exit_code)
-        kstd.echoIsSetting(kstd_m.messPaddingMessage("batch_size",msg_length),str(dto_hyper_param.batch_size))
-        
-        # conv and pooling filter parameter
-        for conv_layer_number in range(prop.num_of_conv_layer):
-            dto_hyper_param.addFilterWigth(prop.filter_wigth[conv_layer_number])
-            dto_hyper_param.addFilterHeight(prop.filter_height[conv_layer_number])
-            dto_hyper_param.addNumOfOutCh(prop.num_of_out_ch[conv_layer_number])
-            dto_hyper_param.addStrideConv(prop.stride_conv[conv_layer_number])
-            dto_hyper_param.addStridePool(prop.stride_pool[conv_layer_number])
-            dto_hyper_param.addShapePool(prop.shape_pool[conv_layer_number])
-
-        if not dto_hyper_param.varCheck() == kstd.NORMAL_CODE:
-            kstd.echoErrorOccured("hyper para check")
-            kstd.exit()
-
-
-
-        dto_output_path = DtoOutputPathForTFCNN()
-
-        case = 0
-        file_path = fi.filePath(case)
-
-        path = file_path.learned_param
-        dto_output_path.setLearnedParameterFilePath(path)
-
-        path = file_path.predicted_value
-        dto_output_path.setPredictedValueFilePath(path)    
-
-        path = file_path.output_dir
-        dto_output_path.setSummaryDirPath(path)
-
-
-        #######################################################
-        # each data settings
-        #######################################################
-
-        from tensorflow.examples.tutorials.mnist import input_data
-        mnist = tf.keras.datasets.mnist
-        (x_train, y_train),(x_test, y_test) = mnist.load_data()
-        kstd.echoBar()
-        kstd.echoBlank()
-        print("data attr")
-        kstd.echoBlank()
-        print(type(x_train)) # numpy.ndarray
-        print(type(y_train)) # numpy.ndarray
-        print(type(x_test))  # numpy.ndarray
-        print(type(y_test))  # numpy.ndarray
-        print(x_train.shape) # (60000,28,28)
-        print(y_train.shape) # (60000,)
-        print(x_test.shape)  # (10000,28,28)
-        print(y_test.shape)  # (10000,)
-        print(np.max(x_train)) # 255
-        print(np.min(x_train)) # 0
-        print(np.max(y_train)) # 9
-        print(np.min(y_train)) # 0
-        kstd.echoBlank()
-        kstd.echoBar()
-
-        wight_x  = 28
-        height_x = 28
-        num_y    = 10
-        dto_data_set_train   = DtoDataSetForTFCNN(wight_x,height_x,num_y)
-        dto_data_set_predict = DtoDataSetForTFCNN(wight_x,height_x,num_y)
-        dto_data_set_answer  = DtoDataSetForTFCNN(wight_x,height_x,num_y)
-
-
-        data_size = 1000 * 1
-
-        # setting x_train to data_set
-        target_data = x_train
-        x_train = []
-        dto_np_table = kstd.DtoNpTable(wight_x * height_x)
-        count = 0
-        for di in range(data_size):
-            xi = target_data[di]
-            x_tmp = xi.flatten()
-            x_tmp = kstd.npNomalizaiton(x_tmp)
-            dto_np_table.addNpArray(x_tmp)
-            count = count + 1
-            if count % 1000 == 0:
-                print("setting x_train : %05d" % count)
-            # kstd.exit()
-        print(dto_np_table.getAttrRowLength())
-
-        dto_data_set_train.addFlatImageTable(dto_np_table)
-
-
-        # setting x_test to data_set
-        target_data = x_test
-        x_test = []
-        dto_np_table = kstd.DtoNpTable(wight_x * height_x)
-        count = 0
-        for di in range(data_size):
-            xi = target_data[di]
-            x_tmp = xi.flatten()
-            x_tmp = kstd.npNomalizaiton(x_tmp)
-            dto_np_table.addNpArray(x_tmp)
-            count = count + 1
-            if count % 1000 == 0:
-                print("setting x_test  : %05d" % count)
-            # kstd.exit()
-        print(dto_np_table.getAttrRowLength())
-        dto_data_set_predict.addFlatImageTable(dto_np_table)
-        dto_data_set_answer.addFlatImageTable(dto_np_table)
-
-        # setting y_train to data_set
-        target_data = y_train
-        y_train = []
-        dto_np_table = kstd.DtoNpTable(num_y)
-        count = 0
-        for di in range(data_size):
-            yi = target_data[di]
-            dto_np_list = kstd.DtoNpList()
-            kstd.createStaticLabelList(dto_np_list,num_y,yi)
-            dto_np_table.addList(dto_np_list)
-            count = count + 1
-            if count % 1000 == 0:
-                print("setting y_train : %05d" % count)
-            # kstd.exit()
-        print(dto_np_table.getAttrRowLength())
-        dto_data_set_train.addLabelTable(dto_np_table)
-
-        # setting y_test to data_set
-        target_data = y_test
-        y_test = []
-        dto_np_table = kstd.DtoNpTable(num_y)
-        count = 0
-        for di in range(data_size):
-            yi = target_data[di]
-            dto_np_list = kstd.DtoNpList()
-            kstd.createStaticLabelList(dto_np_list,num_y,yi)
-            dto_np_table.addList(dto_np_list)
-            count = count + 1
-            if count % 1000 == 0:
-                print("setting y_train : %05d" % count)
-            # kstd.exit()
-        print(dto_np_table.getAttrRowLength())
-        dto_data_set_answer.addLabelTable(dto_np_table)
-
-        selected_value = argvs[1]
-        print("your selection : %s" % selected_value)       
-
-        if selected_value == "1":
-            process = "cnn estimate"
-            kstd.echoStart(process)
-            cnnLearningExecuter(dto_data_set_train,dto_hyper_param,dto_output_path)
-        elif selected_value == "2":
-            process = "cnn re-estimate"
-            kstd.echoStart(process)
-            cnnReLearningExecuter(dto_data_set_train,dto_hyper_param,dto_output_path)
-        elif selected_value == "3":
-            process = "cnn predict"
-            kstd.echoStart(process)
-            cnnPredictionExecuter(dto_data_set_predict,dto_hyper_param,dto_output_path)
-    else:
-        print("input")
-    #dtoNT_predict = dto_data_set_train.dtoNT_label
-    #/dtoNT_answer  = dto_data_set_answer.dtoNT_label
-    #matching_rate = kstd.matchRateOfDtoNpList(dtoNT_predict,dtoNT_answer)
-
-    #print(matching_rate)
-
-
-
 
 

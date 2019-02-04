@@ -380,6 +380,18 @@ def writeAddCsvDataTable(file_path,dtoNT):
     open_mode = 'a'
     _writeCsvDataTable(file_path,dtoNL,open_mode)
 
+def writeNewCsvDataVal(file_path,val):
+    dtoNL = DtoNpList()
+    dtoNL.add(val)
+    writeNewCsvDataList(file_path,dtoNL)
+    return NORMAL_CODE
+
+def writeAddCsvDataVal(file_path,val):
+    dtoNL = DtoNpList()
+    dtoNL.add(val)
+    writeAddCsvDataList(file_path,dtoNL)
+    return NORMAL_CODE
+
 def _writeCsvDataList(file_path,dtoNL,open_mode):
     file = open( file_path , open_mode)
     writer = csv.writer(file, lineterminator='\n')
