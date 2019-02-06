@@ -52,11 +52,6 @@ class DataImage():
         wigth, height = self.image.size
         return wigth
 
-
-
-
-
-
     def checkImageOpend(self):
         if self.image_path == "":
             return kstd.ERROR_CODE
@@ -108,4 +103,13 @@ def getImageListsInTargetDir(dir_path,dto_np_table_flat_image):
         exit_code  = max(exit_code , dto_flat_image_lists.addList(image_data.getFlatList()))
 
     return exit_code
+
+def checkImageSize(height,wigth,flat_image_nplist):
+    base_length  = height * wigth
+    given_length = flat_image_nplist.shape[0]
+
+    if base_length == given_length:
+        return True
+    else:
+        return False
 

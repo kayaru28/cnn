@@ -5,21 +5,14 @@ import numpy as np
 import pandas as pd
 import datetime
 import time
-import inspect
 import ntpath
 import shutil
 
 from abc import ABCMeta,abstractmethod
-import kayaru_standard_messages as kstd_m
 
 ERROR_CODE  = 100
 NORMAL_CODE = 0
 
-EC_NOT_FILE_EXIST = 101
-EC_FILE_EXIST     = 102
-EC_NOT_DIR_EXIST  = 103
-EC_DIR_EXIST      = 104
-EC_NOT_PATH_EXIST = 105
 
 
 ###########################################################
@@ -39,7 +32,7 @@ def checkPathExist(file_path):
     if os.path.exists(file_path):
         return NORMAL_CODE
     else:
-        return EC_NOT_PATH_EXIST
+        return ERROR_CODE
 
 ###########################################################
 #
@@ -122,15 +115,15 @@ def cpCheck(file_path,copied_dir_path):
     file_path_new = joinDirPathAndName(copied_dir_path,file_name) 
     exit_code = checkPathExist(file_path_new)
     if exit_code == NORMAL_CODE:
-        return EC_FILE_EXIST
+        return ERROR_CODE
 
     exit_code = checkPathExist(copied_dir_path)
     if not exit_code == NORMAL_CODE:
-        return EC_NOT_DIR_EXIST
+        return ERROR_CODE
 
     exit_code = checkPathExist(file_path)
     if not exit_code == NORMAL_CODE:
-        return EC_NOT_FILE_EXIST
+        return ERROR_CODE
 
     return NORMAL_CODE
 
@@ -146,7 +139,7 @@ def mkdirExec(path):
 
 def mkdirCheck(path):
     if os.path.exists(path):
-        return EC_DIR_EXIST
+        return ERROR_CODE
     return NORMAL_CODE
 
 def getKeyboadInput():
@@ -348,7 +341,7 @@ def createStaticLabelList(dtoNL,list_size,label):
 #######################################################
 # csv unit
 #######################################################
-def getCsvDataTable(file_path):
+def readCsvDataTable(file_path):
 
     np_table   = np.loadtxt(file_path,delimiter=",")
 
@@ -372,6 +365,25 @@ def writeAddCsvDataList(file_path,dtoNL):
     open_mode = 'a'
     _writeCsvDataList(file_path,dtoNL,open_mode)
 
+
+def writeAddCsvDataVal(file_path,val):
+    open_mode = 'a'
+    _writeCsvDataVal(file_path,val,open_mode)
+
+def writeNewCsvDataVal(file_path,val):
+    open_mode = 'w'
+    _writeCsvDataVal(file_path,val,open_mode)
+
+def _writeCsvDataVal(file_path,val,open_mode):
+
+    tmp = [val]
+
+    file   = open( file_path , open_mode)
+    writer = csv.writer(file, lineterminator='\n')
+    writer.writerow(tmp)
+    file.close()
+
+
 def writeNewCsvDataTable(file_path,dtoNT):
     open_mode = 'w'
     _writeCsvDataTable(file_path,dtoNL,open_mode)
@@ -380,50 +392,21 @@ def writeAddCsvDataTable(file_path,dtoNT):
     open_mode = 'a'
     _writeCsvDataTable(file_path,dtoNL,open_mode)
 
-def writeNewCsvDataVal(file_path,val):
-    dtoNL = DtoNpList()
-    dtoNL.add(val)
-    writeNewCsvDataList(file_path,dtoNL)
-    return NORMAL_CODE
-
-def writeAddCsvDataVal(file_path,val):
-    dtoNL = DtoNpList()
-    dtoNL.add(val)
-    writeAddCsvDataList(file_path,dtoNL)
-    return NORMAL_CODE
-
 def _writeCsvDataList(file_path,dtoNL,open_mode):
-    file = open( file_path , open_mode)
+    file   = open( file_path , open_mode)
     writer = csv.writer(file, lineterminator='\n')
     writer.writerow(dtoNL.getVariable())
     file.close()
 
 def _writeCsvDataTable(file_path,dtoNT,open_mode):
-    file = open( file_path , open_mode)
+    file   = open( file_path , open_mode)
     writer = csv.writer(file, lineterminator='\n')
     writer.writerows(dtoNT.getVariable())
     file.close()
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-def sleepExec(sec):
-    time.sleep(sec)
+#######################################################
+# string unit
+#######################################################
 
 def left(str, amount):
     return str[:amount]
@@ -433,6 +416,63 @@ def right(str, amount):
 
 def mid(str, offset, amount):
     return str[offset:offset+amount]
+
+def substituteWordAToB(word,a,b):
+    ans = word.replace(a, b) 
+    return ans
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+def readNpzDataTable(file_path):
+    data_load  = np.load(file_path)
+    NT_data    = data_load["arr_0"]
+    col_length = NT_data.shape[1]
+    dtoNT_data = DtoNpTable(col_length)
+    dtoNT_data.addNpArray(NT_data)
+    return dtoNT_data
+
+def readNpzFile(file_path):
+    data_load  = np.load(file_path)
+    NT_data    = data_load["arr_0"]
+    return NT_data
+
+class timeCalculater():
+    def __init__(self):
+        self.start_time = getTime()
+        self.lap_time   = getTime()  
+
+    def lap(self):
+        self.lap_time   = getTime()  
+
+    def getLap(self,unit="s"):
+        return getElapsedTime(self.lap_time,unit)
+
+    def getElapsed(self,unit="s"):
+        return getElapsedTime(self.start_time,unit)
+
+def sleepExec(sec):
+    time.sleep(sec)
+
 
 def max(a,b):
     ans = a
@@ -444,17 +484,6 @@ def min(a,b):
     ans = a
     if( a > b ):
         ans = b
-    return ans
-
-def cutStrBeforeKey(key,str):
-    no  = patternMatch(key,str)
-    ans = left( str , no - 1) 
-    return ans
-
-def cutStrAfterKey(key,str):
-    no  = patternMatch(key,str)
-    no  = no + ( len(key) - 1 )
-    ans = right( str , len(str) - no )
     return ans
 
 
@@ -469,10 +498,6 @@ def judgeError(exit_code):
         print("!!!!ERROR OCCURED!!!!11!!")
         sys.exit()
 
-def convA2BinWord(word,a,b):
-    ans = word.replace(a, b) 
-    return ans
-
 def getScriptDir():
     return os.path.abspath(os.path.dirname(__file__))
 
@@ -485,6 +510,38 @@ def getDateyyyymmdd():
 def getTimeyyyymmddhhmmss():
     return str(datetime.datetime.now())
 
+def getTimeIntyyyymmddhhmmss():
+    yyyymmdd = ""
+    date = getTimeyyyymmddhhmmss()
+
+    # yyyy
+    amount   = 4
+    yyyymmdd = yyyymmdd + left(date,amount)
+    date     = right(date,len(date) - amount - 1)
+    # mm    
+    amount   = 2
+    yyyymmdd = yyyymmdd + left(date,amount)
+    date     = right(date,len(date) - amount - 1)
+    # dd   
+    amount   = 2
+    yyyymmdd = yyyymmdd + left(date,amount)
+    date     = right(date,len(date) - amount - 1)
+    # hh
+    amount   = 2
+    yyyymmdd = yyyymmdd + left(date,amount)
+    date     = right(date,len(date) - amount - 1)
+    # mm
+    amount   = 2
+    yyyymmdd = yyyymmdd + left(date,amount)
+    date     = right(date,len(date) - amount - 1)
+    # ss
+    amount   = 2
+    yyyymmdd = yyyymmdd + left(date,amount)
+    date     = right(date,len(date) - amount - 1)
+
+    return int(yyyymmdd)
+
+
 def getTime():
     return time.time()
 
@@ -495,129 +552,6 @@ def getElapsedTime(base_time,unit="m"):
     elif unit == "h":
         elapsed_time = elapsed_time / 60 / 60
     return elapsed_time
-
-###########################################################
-#
-# varidation
-#
-###########################################################
-
-def isNotNull(str):
-    ans = True
-
-    if(str == None):
-        ans = False
-    elif(str == ""):
-        ans = False
-    return ans
-
-def isNull(str):
-    ans = False
-    if(str == None):
-        ans = True
-    elif(str == ""):
-        ans = True
-    return ans
-
-def isInt(val):
-    if type(val) is int:
-        return True
-    else:
-        return False
-
-def isStr(val):
-    if type(val) is str:
-        return True
-    else:
-        return False
-
-def isTuple(target):
-    if isinstance(target, tuple):
-        return True
-    else:
-        return False
-
-def isList(target):
-    if isinstance(target, list):
-        return True
-    else:
-        return False
-
-def isEvenNumber(val):
-
-    if not type(val) is int:
-        return False
-    elif ( val % 2 == 0 ):
-        return True
-    else:
-        return False
-
-###########################################################
-#
-# read and write for csv
-#
-###########################################################
-def readCsvFile(file_path):
-    data = np.genfromtxt(file_path,dtype=None,delimiter=",")
-    return data
-
-class CsvWriter():
-    def __init__(self):
-        self.file = ""
-
-    def openFile(self,file_path):
-        if isNull(file_path):
-            echoNullOfAValue(file_path,locals())
-            return ERROR_CODE
-        
-        self.file = open( file_path , 'w')
-
-        return NORMAL_CODE
-
-    def openFileForAdd(self,file_path):
-        if isNull(file_path):
-            echoNullOfAValue(file_path,locals())
-            return ERROR_CODE
-        if not os.path.exists(file_path):
-            echoNotExistThatFile(file_path)
-            return ERROR_CODE
-
-        self.file = open( file_path , 'a')
-
-        return NORMAL_CODE
-
-    def closeFile(self):
-        if isNull(self.file):
-            echoOpenAnyFile()
-            return ERROR_CODE
-
-        self.file.close()
-
-    def writeOfVal(self,val):
-        if isNull(self.file):
-            echoOpenAnyFile()
-            return ERROR_CODE
-        self.val_list = []
-        self.val_list.append(val)
-        self.writer = csv.writer(self.file, lineterminator='\n')
-        self.writer.writerow(self.val_list)
-        return NORMAL_CODE
-
-    def writeOfList(self,var_list):
-        if isNull(self.file):
-            echoOpenAnyFile()
-            return ERROR_CODE
-        self.writer = csv.writer(self.file, lineterminator='\n')
-        self.writer.writerow(var_list)
-        return NORMAL_CODE
-
-    def writeOfArray2d(self,array_2d):
-        if isNull(self.file):
-            echoOpenAnyFile()
-            return ERROR_CODE
-        self.writer = csv.writer(self.file, lineterminator='\n')
-        self.writer.writerows(array_2d)
-        return NORMAL_CODE
 
 
 def getVarName( var, symboltable=locals(), error=None ) :
@@ -709,4 +643,127 @@ def echoErrorOccured(detail=""):
     echoBar()
     echoBlank()
 
+
+
+
+
+
+
+###########################################################
+###########################################################
+###########################################################
+###########################################################
+###########################################################
+###########################################################
+###########################################################
+###########################################################
+###########################################################
+###########################################################
+###########################################################
+###########################################################
+###########################################################
+###########################################################
+###########################################################
+#
+# old members
+#
+###########################################################
+###########################################################
+###########################################################
+###########################################################
+###########################################################
+###########################################################
+###########################################################
+###########################################################
+###########################################################
+###########################################################
+###########################################################
+###########################################################
+###########################################################
+###########################################################
+
+
+
+def cutStrBeforeKey(key,str):
+    no  = patternMatch(key,str)
+    ans = left( str , no - 1) 
+    return ans
+
+def cutStrAfterKey(key,str):
+    no  = patternMatch(key,str)
+    no  = no + ( len(key) - 1 )
+    ans = right( str , len(str) - no )
+    return ans
+
+def convA2BinWord(word,a,b):
+    ans = word.replace(a, b) 
+    return ans
+
+
+###########################################################
+#
+# read and write for csv
+#
+###########################################################
+def readCsvFile(file_path):  #### special target
+    data = np.genfromtxt(file_path,dtype=None,delimiter=",")
+    return data
+
+class CsvWriter():
+    def __init__(self):
+        self.file = ""
+
+    def openFile(self,file_path):
+        if isNull(file_path):
+            echoNullOfAValue(file_path,locals())
+            return ERROR_CODE
+        
+        self.file = open( file_path , 'w')
+
+        return NORMAL_CODE
+
+    def openFileForAdd(self,file_path):
+        if isNull(file_path):
+            echoNullOfAValue(file_path,locals())
+            return ERROR_CODE
+        if not os.path.exists(file_path):
+            echoNotExistThatFile(file_path)
+            return ERROR_CODE
+
+        self.file = open( file_path , 'a')
+
+        return NORMAL_CODE
+
+    def closeFile(self):
+        if isNull(self.file):
+            echoOpenAnyFile()
+            return ERROR_CODE
+
+        self.file.close()
+
+    def writeOfVal(self,val):
+        if isNull(self.file):
+            echoOpenAnyFile()
+            return ERROR_CODE
+        self.val_list = []
+        self.val_list.append(val)
+        self.writer = csv.writer(self.file, lineterminator='\n')
+        self.writer.writerow(self.val_list)
+        return NORMAL_CODE
+
+    def writeOfList(self,var_list):
+        if isNull(self.file):
+            echoOpenAnyFile()
+            return ERROR_CODE
+        self.writer = csv.writer(self.file, lineterminator='\n')
+        self.writer.writerow(var_list)
+        return NORMAL_CODE
+
+    def writeOfArray2d(self,array_2d):
+        if isNull(self.file):
+            echoOpenAnyFile()
+            return ERROR_CODE
+        self.writer = csv.writer(self.file, lineterminator='\n')
+        self.writer.writerows(array_2d)
+        return NORMAL_CODE
 
