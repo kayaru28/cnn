@@ -386,11 +386,11 @@ def _writeCsvDataVal(file_path,val,open_mode):
 
 def writeNewCsvDataTable(file_path,dtoNT):
     open_mode = 'w'
-    _writeCsvDataTable(file_path,dtoNL,open_mode)
+    _writeCsvDataTable(file_path,dtoNT,open_mode)
 
 def writeAddCsvDataTable(file_path,dtoNT):
     open_mode = 'a'
-    _writeCsvDataTable(file_path,dtoNL,open_mode)
+    _writeCsvDataTable(file_path,dtoNT,open_mode)
 
 def _writeCsvDataList(file_path,dtoNL,open_mode):
     file   = open( file_path , open_mode)

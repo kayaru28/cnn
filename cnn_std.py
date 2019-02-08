@@ -4,12 +4,10 @@
 # ver.3.0 we get architecture from resnet
 
 import kayaru_standard_process as kstd
-import kayaru_standard_process_for_randomize as rand
 import kayaru_standard_messages as kstd_m
 import numpy as np
 
 import tensorflow as tf
-
 
 PADDING_SAME  = "SAME"
 PADDING_VALID = "VALID"
@@ -28,6 +26,33 @@ AXIS_X_C = 3
 # general
 #
 ################################################################
+
+def crateNLLabelFromValue(dto_data_set):
+
+    row_length = dto_data_set.dtoNT_value.getAttrRowLength()
+    col_length = dto_data_set.dtoNT_value.getAttrColLength()
+    NT_value   = dto_data_set.dtoNT_value.getVariable()
+
+    dtoNT_label = kstd.DtoNpTable(col_length)
+    for ri in range(row_length):
+
+        var_list = NT_value[ri]
+        var_max  = var_list.max()
+
+        dtoNL_label = kstd.DtoNpList()
+    
+        for ci in range(col_length):
+            if var_max == var_list[ci]:
+                label = 1
+            else:
+                label = 0
+
+            dtoNL_label.add(label)
+        dtoNT_label.addList(dtoNL_label)
+
+    dto_data_set.addLabelTable(dtoNT_label)
+
+    return kstd.NORMAL_CODE
 
 def getX2dFeatureVolume(x_2d):
     num_wigth   = x_2d.shape[AXIS_X_W]
@@ -289,9 +314,8 @@ def batchNormWrapper(inputs, is_training, decay = 0.999):
     pop_mean = tf.Variable(tf.zeros([inputs.get_shape()[-1]]), trainable=False)
     pop_var  = tf.Variable(tf.ones([inputs.get_shape()[-1]]), trainable=False)
 
-
     if is_training:
-        batch_mean, batch_var = tf.nn.moments(inputs,[0])
+        batch_mean, batch_var = tf.nn.moments(inputs,[0,1,2])
         batch_mean = tf.cast(batch_mean,tf.float32)
         batch_var  = tf.cast(batch_var,tf.float32)
         train_mean = tf.assign(pop_mean,
@@ -334,17 +358,50 @@ class ResidualResNet():
             return True
         return False
 
-    def calculate(self,x,W1,W2):
+    def createW0(self):
+        W1 = self.conv.createW0()
+        W2 = self.conv.createW0()
+        return W1,W2
+
+    def calculate(self,x,W1,W2,is_training=False):
         fx = x
         fx = self.conv.calculate(fx,W1)
-        fx = batchNormWrapper(fx,True)
+        fx = batchNormWrapper(fx,is_training)
         fx = activationFuncRelu(fx)
         fx = self.conv.calculate(fx,W2)
-        fx = batchNormWrapper(fx,True)
+        fx = batchNormWrapper(fx,is_training)
         fx = tf.add(fx, x)
         fx = activationFuncRelu(fx)
         return fx        
 
+class ResidualResNetStochasticDepth():
+    def __init__(self,p_l):
+        self.p_l  = p_l
+        self.conv = Conv2dSame()
+
+    def isSetParameters(self):
+        if self.conv.isSetParameters():
+            return True
+        return False
+
+    def createW0(self):
+        W1 = self.conv.createW0()
+        W2 = self.conv.createW0()
+        return W1,W2
+
+    def calculate(self,x,W1,W2,is_training=False):
+        fx = x
+        fx = self.conv.calculate(fx,W1)
+        fx = batchNormWrapper(fx,is_training)
+        fx = activationFuncRelu(fx)
+        fx = self.conv.calculate(fx,W2)
+        fx = batchNormWrapper(fx,is_training)
+        if self.p_l > np.random.rand():
+            fx = tf.add(fx, x)
+        else:
+            fx = x
+        fx = activationFuncRelu(fx)
+        return fx        
 
 ################################################################
 #
@@ -443,11 +500,13 @@ class DtoDataSetForTFCNN():
         if self.count_out + batch_size > self.num_data:
             index_e = self.num_data
             self.count_out = 0
+            np.random.shuffle(self.index_list)
         else:    
             index_e = index_s + batch_size
             self.count_out = self.count_out + batch_size
             if self.count_out == self.num_data:
                 self.count_out = 0
+                np.random.shuffle(self.index_list)
 
         return self.NT_flat_img[index_s:index_e],self.NT_label[index_s:index_e]
 

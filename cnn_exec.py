@@ -1,8 +1,6 @@
 #coding: UTF-8
 
 import kayaru_standard_process as kstd
-import kayaru_standard_process_for_image as image
-import kayaru_standard_process_for_randomize as rand
 import kayaru_standard_messages as kstd_m
 import numpy as np
 import properties_for_cnn as prop
@@ -21,66 +19,110 @@ MODE_PREDICTION  = "Prediction"
 # modeling
 #########################################################
 
-def __cnnModel(x_2d):
+def pl(l,L):
+    return 1 - l / ( 2.0 * L )
+
+def __cnnModel(x_2d,is_training):
 
     num_out_channels = 1
 
+    num_L = 3.0 * 3.0 * 2
 
     #####################################################
     # convolution layer
-    #####################################################
-    process="convolution layer"
-
-    conv1 = cnn.Conv2dSame()
-    parameterSettingConv1(conv1,process,num_out_channels)
-
-    W_c1 = conv1.createW0()
-    x_2d = conv1.calculate(x_2d,W_c1)
-
-    kstd.echoIsAlready(process)
-
-    num_out_channels = prop.conv1_out_channels
+    process = kstd_m.messPaddingMessage("convolution layer",20)
+    conv1   = cnn.Conv2dSame()
+    x_2d    =  makeConvLayer(x_2d, conv1, prop.conv1, process, num_out_channels)
+    num_out_channels = prop.conv1.out_channels
 
     #####################################################
     # max pool layer
+    process = kstd_m.messPaddingMessage("max pooling layer",20)
+    pool1   = cnn.MaxPoolSame()
+    x_2d    = makePoolLayer(x_2d,pool1,prop.pool1,process)
+
     #####################################################
-    process="max pool layer"
+    # residual resnet
+    process = kstd_m.messPaddingMessage("resnet layer",20)
+    resnet1_1 = cnn.ResidualResNetStochasticDepth(pl(1,num_L))
+    x_2d      = makeResNetLayer(x_2d,resnet1_1,prop.resnet1,process,num_out_channels,is_training)
+    resnet1_2 = cnn.ResidualResNetStochasticDepth(pl(2,num_L))
+    x_2d      = makeResNetLayer(x_2d,resnet1_2,prop.resnet1,process,num_out_channels,is_training)
+    resnet1_3 = cnn.ResidualResNetStochasticDepth(pl(3,num_L))
+    x_2d      = makeResNetLayer(x_2d,resnet1_3,prop.resnet1,process,num_out_channels,is_training)
 
-    pool1 = cnn.MaxPoolSame()
-    parameterSettingPool1(pool1,process)
+    #####################################################
+    # convolution layer
+    process = kstd_m.messPaddingMessage("convolution layer",20)
+    conv3   = cnn.Conv2dSame()
+    x_2d    = makeConvLayer(x_2d,conv3,prop.conv3,process,num_out_channels)
+    num_out_channels = prop.conv3.out_channels
 
-    x_2d = pool1.calculate(x_2d)
+    #####################################################
+    # residual resnet
+    process = kstd_m.messPaddingMessage("resnet layer",20)
+    resnet2_1 = cnn.ResidualResNetStochasticDepth(pl(4,num_L))
+    x_2d    = makeResNetLayer(x_2d,resnet2_1,prop.resnet2,process,num_out_channels,is_training)
+    resnet2_2 = cnn.ResidualResNetStochasticDepth(pl(5,num_L))
+    x_2d    = makeResNetLayer(x_2d,resnet2_2,prop.resnet2,process,num_out_channels,is_training)
+    resnet2_3 = cnn.ResidualResNetStochasticDepth(pl(6,num_L))
+    x_2d    = makeResNetLayer(x_2d,resnet2_3,prop.resnet2,process,num_out_channels,is_training)
 
-    kstd.echoIsAlready(process)
+    #####################################################
+    # convolution layer
+    process = kstd_m.messPaddingMessage("convolution layer",20)
+    conv4   = cnn.Conv2dSame()
+    x_2d    = makeConvLayer(x_2d,conv4,prop.conv4,process,num_out_channels)
+    num_out_channels = prop.conv4.out_channels
+
+    #####################################################
+    # residual resnet
+    process = kstd_m.messPaddingMessage("resnet layer",20)
+    resnet3_1 = cnn.ResidualResNetStochasticDepth(pl(7,num_L))
+    x_2d    = makeResNetLayer(x_2d,resnet3_1,prop.resnet3,process,num_out_channels,is_training)
+    resnet3_2 = cnn.ResidualResNetStochasticDepth(pl(8,num_L))
+    x_2d    = makeResNetLayer(x_2d,resnet3_2,prop.resnet3,process,num_out_channels,is_training)
+    resnet3_3 = cnn.ResidualResNetStochasticDepth(pl(9,num_L))
+    x_2d    = makeResNetLayer(x_2d,resnet3_3,prop.resnet3,process,num_out_channels,is_training)
+
+    #####################################################
+    # convolution layer
+    process = kstd_m.messPaddingMessage("convolution layer",20)
+    conv5   = cnn.Conv2dSame()
+    x_2d    = makeConvLayer(x_2d,conv5,prop.conv5,process,num_out_channels)
+    num_out_channels = prop.conv5.out_channels
+
+    #####################################################
+    # global average pooling layer
+    process = kstd_m.messPaddingMessage("GAP layer",20)
+    x_2d    = cnn.globalAveragePool(x_2d)
+
+    y_cnn = x_2d
 
     #####################################################
     # full connected layer preparation
-    #####################################################
 
-    fc_input_size = cnn.getX2dFeatureVolume(x_2d)
+    fc_input_size = 512 #cnn.getX2dFeatureVolume(x_2d)
     y_cnn         = tf.reshape(x_2d, [-1, fc_input_size ])
-    y_acc         = y_cnn
  
     #####################################################
     # full connected layer
-    #####################################################
     process = "full connected layer"
-    kstd.echoStart(process)
 
     fc1 = cnn.FullConnected()
     fc1.setInputSize(fc_input_size)
     fc1.setOutputSize(prop.fc1_out)
-    fc_input_size = prop.fc1_out
 
-    if fc1.isSetParameters():
-        W_f1     = fc1.createW0()
-        y_cnn    = fc1.calculate(y_cnn,W_f1,prop.fc1_keep_prop)
-        y_acc    = fc1.calculate(y_acc,W_f1,prop.KEEP_PROP_ALL)
-    else:
-        kstd.echoErrorOccured(process)
-        kstd.exit()
-    kstd.echoFinish(process)
+    judgeParameterSettingError(fc1,process)
+
+    W_f1     = fc1.createW0()
+    y_cnn    = fc1.calculate(y_cnn,W_f1,prop.KEEP_PROP_ALL)
+
+    kstd.echoIsAlready(process)
+    fc_input_size = prop.fc1_out
     
+    y_acc         = y_cnn
+
     return y_cnn,y_acc
 
 def judgeParameterSettingError(model,process):
@@ -88,31 +130,55 @@ def judgeParameterSettingError(model,process):
         kstd.echoErrorOccured(process)
         kstd.exit()
 
-def parameterSettingConv1(conv1,process,num_preunit_out_channels):
-    conv1.setFilterW(prop.conv1_filter_w)
-    conv1.setFilterH(prop.conv1_filter_h)
-    conv1.setOutChannels(prop.conv1_out_channels)
-    conv1.setFilterInChannels(num_preunit_out_channels)
-    conv1.setStrideW(prop.conv1_stride_w)
-    conv1.setStrideH(prop.conv1_stride_h)
+def makeConvLayer(x_2d,conv,conv_para,process,num_preunit_out_channels):
+    conv.setFilterW(conv_para.filter_w)
+    conv.setFilterH(conv_para.filter_h)
+    conv.setOutChannels(conv_para.out_channels)
+    conv.setFilterInChannels(num_preunit_out_channels)
+    conv.setStrideW(conv_para.stride_w)
+    conv.setStrideH(conv_para.stride_h)
+    judgeParameterSettingError(conv,process)
 
-    judgeParameterSettingError(conv1,process)
+    W = conv.createW0()
+    x_2d = conv.calculate(x_2d,W)
 
-def parameterSettingPool1(pool1,process):
-    pool1.setFilterW(prop.pool1_stride_w)
-    pool1.setFilterH(prop.pool1_stride_h)
-    pool1.setStrideW(prop.pool1_stride_w)
-    pool1.setStrideH(prop.pool1_stride_h)
-    judgeParameterSettingError(pool1,process)
+    kstd.echoIsAlready(process)
 
+    return x_2d
 
+def makePoolLayer(x_2d,pool,pool_para,process):
+    pool.setFilterW(pool_para.stride_w)
+    pool.setFilterH(pool_para.stride_h)
+    pool.setStrideW(pool_para.stride_w)
+    pool.setStrideH(pool_para.stride_h)
+    judgeParameterSettingError(pool,process)
 
+    x_2d = pool.calculate(x_2d)
 
+    kstd.echoIsAlready(process)
+
+    return x_2d
+
+def makeResNetLayer(x_2d,resnet,resnet_para,process,num_preunit_out_channels,is_training):
+    resnet.conv.setFilterW(resnet_para.filter_w)
+    resnet.conv.setFilterH(resnet_para.filter_h)
+    resnet.conv.setOutChannels(num_preunit_out_channels)
+    resnet.conv.setFilterInChannels(num_preunit_out_channels)
+    resnet.conv.setStrideW(resnet_para.stride_w)
+    resnet.conv.setStrideH(resnet_para.stride_h)
+    judgeParameterSettingError(resnet,process)
+
+    W_r1,W_r2 = resnet.createW0()
+    x_2d      = resnet.calculate(x_2d,W_r1,W_r2,is_training)
+
+    kstd.echoIsAlready(process)
+
+    return x_2d
 #########################################################
 # trainer
 #########################################################
 def getProgressMessage(ii,train_accuracy,train_entropy,timer):
-    return ('step %4d/%d\taccuracy\t%0.2g\tentropy\t%0.2g\t(%ds/%dm)'
+    return ('step %5d/%d\taccuracy\t%0.2g\tentropy\t%0.2g\t(%ds/%dm)'
            % (ii + 1, prop.LEARNING_ITERATION,train_accuracy,train_entropy,timer.getLap("s"),timer.getElapsed("m")))
 
 def __cnnTrainingUnit(y_ans,y_cnn,y_acc):
@@ -159,7 +225,7 @@ def cnnLearning(dto_data_set,outputer,x_1d,y_ans):
     #####################################################
     # model learning
     #####################################################
-    y_cnn,y_acc                       = __cnnModel(x_2d)    
+    y_cnn,y_acc                       = __cnnModel(x_2d,True)    
     train_step,cross_entropy,accuracy = __cnnTrainingUnit(y_ans,y_cnn,y_acc)
 
     with tf.Session() as sess:
@@ -183,7 +249,7 @@ def cnnReLearning(dto_data_set,outputer,x_1d,y_ans):
     #####################################################
     # model learning
     #####################################################
-    y_cnn,y_acc                       = __cnnModel(x_2d)    
+    y_cnn,y_acc                       = __cnnModel(x_2d,True)    
     train_step,cross_entropy,accuracy = __cnnTrainingUnit(y_ans,y_cnn,y_acc)
 
     with tf.Session() as sess:
@@ -209,7 +275,7 @@ def cnnValidation(dto_data_set,outputer,x_1d,y_ans):
     #####################################################
     # model learning
     #####################################################
-    y_cnn,y_acc                       = __cnnModel(x_2d)    
+    y_cnn,y_acc                       = __cnnModel(x_2d,False)    
     train_step,cross_entropy,accuracy = __cnnTrainingUnit(y_ans,y_cnn,y_acc)
 
     with tf.Session() as sess:
@@ -239,7 +305,7 @@ def cnnPrediction(dto_data_set,outputer,x_1d,y_ans):
     #####################################################
     # model learning
     #####################################################
-    y_cnn,y_acc = __cnnModel(x_2d)    
+    y_cnn,y_acc = __cnnModel(x_2d,False)    
 
     with tf.Session() as sess:
 
